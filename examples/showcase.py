@@ -10,14 +10,15 @@ from datetime import datetime, timedelta
 
 from nicegui import ui
 
-from nicegui_kit import layout, run_monitor, run_pool, table, theme
+from nicegui_kit import layout, run_monitor, run_pool, table, texts, theme
 
-PERIODS = {"День": timedelta(days=1), "Неделя": timedelta(days=7), "Всё": None}
-STATUSES = {"Все статусы": None, "Идёт": run_pool.PENDING_STATUSES, "Готово": {run_pool.DONE},
-            "Ошибка": {run_pool.FAILED}}
-DEMO_RUNS = (("Ночной сбор", "echo collecting; sleep 2; echo done"),
-             ("Пробный прогон", "echo start; echo boom >&2; exit 3"))
+PERIODS = {"Day": timedelta(days=1), "Week": timedelta(days=7), "All": None}
+STATUSES = {"All statuses": None, "Running": run_pool.PENDING_STATUSES, "Done": {run_pool.DONE},
+            "Error": {run_pool.FAILED}}
+DEMO_RUNS = (("Nightly scrape", "echo collecting; sleep 2; echo done"),
+             ("Trial run", "echo start; echo boom >&2; exit 3"))
 
+texts.TEXTS.update(texts.EN)  # kit strings are Russian by default
 theme.apply_theme()
 
 
@@ -29,30 +30,30 @@ def _run_dialog() -> ui.dialog:
     """Starting a run is a one-off act; the list is where the work is. So the form
     lives in a dialog behind the page's primary button, not in a column of its own."""
     with ui.dialog() as dialog, layout.section_card():
-        layout.heading("Новый прогон", level=2)
-        name = layout.field("Название", required=True, enter="next").props("clearable")
+        layout.heading("New run", level=2)
+        name = layout.field("Name", required=True, enter="next").props("clearable")
         # a filled address IS the request for a report: no separate checkbox
-        mail = layout.field("Почта для отчёта (необязательно)", kind="email", enter="done",
-                            hint="Пришлём отчёт, когда прогон закончится").props("clearable")
+        mail = layout.field("Email for the report (optional)", kind="email", enter="done",
+                            hint="We'll send a report when the run finishes").props("clearable")
 
         def start() -> None:
             if not name.validate():
                 return
             _submit(name.value, "echo working; sleep 3; echo ok")
-            ui.notify(f"Прогон «{name.value}» запущен"
-                      + (f", отчёт придёт на {mail.value}" if mail.value else ""), type="positive")
+            ui.notify(f"Run \"{name.value}\" started"
+                      + (f", the report will go to {mail.value}" if mail.value else ""), type="positive")
             name.value = ""
             dialog.close()
 
         mail.on("keydown.enter", start)
         with layout.actions_row():
-            layout.button("Отмена", kind="quiet", on_click=dialog.close)
-            layout.button("Запустить", kind="primary", on_click=start)
+            layout.button("Cancel", kind="quiet", on_click=dialog.close)
+            layout.button("Start", kind="primary", on_click=start)
     return dialog
 
 
 def _runs_section() -> None:
-    flt = {"text": "", "status": "Все статусы", "period": "Всё"}
+    flt = {"text": "", "status": "All statuses", "period": "All"}
 
     def visible(state: run_pool.RunState) -> bool:
         statuses, age = STATUSES[flt["status"]], PERIODS[flt["period"]]
@@ -62,86 +63,86 @@ def _runs_section() -> None:
 
     # the page h1 already names the list; the count depends on the filters, so it sits with them
     with layout.filter_bar():
-        layout.search_field("Поиск по названию", on_change=lambda e: flt.update(text=e.value or ""))
-        ui.select(list(STATUSES), value="Все статусы",
+        layout.search_field("Search by name", on_change=lambda e: flt.update(text=e.value or ""))
+        ui.select(list(STATUSES), value="All statuses",
                   on_change=lambda e: flt.update(status=e.value)) \
-            .props('outlined dense aria-label="Статус"')
-        ui.toggle(list(PERIODS), value="Всё", on_change=lambda e: flt.update(period=e.value))
+            .props('outlined dense aria-label="Status"')
+        ui.toggle(list(PERIODS), value="All", on_change=lambda e: flt.update(period=e.value))
         ui.space()
         count = ui.label().classes("t-meta")
-    run_monitor.attach_run_monitor(run_filter=visible, idle_text="Под эти фильтры прогонов нет.")
+    run_monitor.attach_run_monitor(run_filter=visible, idle_text="No runs match these filters.")
     ui.timer(1, lambda: count.set_text(
-        f"Показано {sum(map(visible, run_pool.RUNS.values()))} из {len(run_pool.RUNS)}"))
+        f"Showing {sum(map(visible, run_pool.RUNS.values()))} of {len(run_pool.RUNS)}"))
 
 
 def _states_gallery() -> None:
     with layout.section_card():
-        layout.heading("Состояния данных", level=2)
-        ui.label("Одно место — одно состояние; переключите, чтобы сравнить.").classes("t-meta")
+        layout.heading("Data states", level=2)
+        ui.label("One place, one state at a time; switch to compare.").classes("t-meta")
         area = ui.column().classes("w-full")
 
         def show(kind: str) -> None:
             area.clear()
             with area:
-                if kind == "Пусто":
-                    layout.empty("Прогонов ещё не было — запустите первый.",
-                                 ("Запустить", lambda: ui.notify("Демо")))
-                elif kind == "Загрузка":
-                    layout.waiting("Загружаем журнал")
-                elif kind == "Ошибка":
-                    layout.failed("Не удалось прочитать журнал. Проверьте путь в настройках.",
-                                  retry=lambda: ui.notify("Повтор"))
+                if kind == "Empty":
+                    layout.empty("No runs yet. Start the first one.",
+                                 ("Start", lambda: ui.notify("Demo")))
+                elif kind == "Loading":
+                    layout.waiting("Loading the journal")
+                elif kind == "Error":
+                    layout.failed("Couldn't read the journal. Check the path in settings.",
+                                  retry=lambda: ui.notify("Retry"))
                 else:
                     with ui.row().classes("ic-state"):
                         ui.icon("check_circle").classes("ic-status--ok")
-                        ui.label("Журнал прочитан: 1 204 записи.").classes("ic-status--ok")
+                        ui.label("Journal read: 1,204 entries.").classes("ic-status--ok")
 
-        ui.toggle(["Пусто", "Загрузка", "Ошибка", "Готово"], value="Пусто",
+        ui.toggle(["Empty", "Loading", "Error", "Done"], value="Empty",
                   on_change=lambda e: show(e.value))
-        show("Пусто")
+        show("Empty")
 
 
 def _fields_gallery() -> None:
     with layout.section_card():
-        layout.heading("Поля ввода", level=2)
-        ui.label("Тип поля задаёт клавиатуру на телефоне и автозаполнение браузера.").classes("t-meta")
+        layout.heading("Input fields", level=2)
+        ui.label("The field kind sets the phone keyboard and browser autofill.").classes("t-meta")
         with layout.grid():
-            layout.field("Город", suggestions=["Москва", "Минск", "Мурманск"],
-                         hint="Подсказки при вводе").classes("ic-span-6")
-            layout.field("Телефон", kind="tel", hint="Цифровая клавиатура").classes("ic-span-6")
-            layout.field("Пароль", kind="password", required=True).classes("ic-span-6")
-            layout.field("Код из СМС", kind="code", enter="done", hint="6 цифр") \
+            layout.field("City", suggestions=["Berlin", "Boston", "Bristol"],
+                         hint="Suggestions while typing").classes("ic-span-6")
+            layout.field("Phone", kind="tel", hint="Numeric keypad").classes("ic-span-6")
+            layout.field("Password", kind="password", required=True).classes("ic-span-6")
+            layout.field("SMS code", kind="code", enter="done", hint="6 digits") \
                 .props('mask="### ###" unmasked-value input-class="t-mono"').classes("ic-span-4")
 
 
 def _marks_gallery() -> None:
     with layout.section_card():
-        layout.heading("Статусы и метки", level=2)
+        layout.heading("Statuses and marks", level=2)
         with ui.row().classes("items-center flex-wrap").style("gap: var(--ic-s2) var(--ic-s3)"):
-            for text, cls in (("готово", "ok"), ("идёт", "running"), ("ошибка", "error"),
-                              ("остановлено", "cancel")):
+            for text, cls in (("done", "ok"), ("running", "running"), ("error", "error"),
+                              ("cancelled", "cancel")):
                 ui.label(text).classes(f"ic-badge ic-status--{cls}")
             ui.label("12").classes("ic-count")
             ui.label("prod").classes("ic-chip ic-chip--neutral")
-        ui.label("Токен истекает через 2 дня — обновите его в настройках.").classes("ic-banner p-3")
+        ui.label("The token expires in 2 days. Renew it in settings.").classes("ic-banner p-3")
 
 
 def _data_gallery() -> None:
     with layout.section_card():
-        layout.heading("Таблица и текст", level=2)
+        layout.heading("Table and text", level=2)
         t = table.empty_aware_table(
-            [{"name": "n", "label": "Автор", "field": "n", "align": "left"},
-             {"name": "c", "label": "Видео", "field": "c", "align": "right"}],
+            [{"name": "n", "label": "Author", "field": "n", "align": "left"},
+             {"name": "c", "label": "Videos", "field": "c", "align": "right"}],
             row_key="n", pagination={"rowsPerPage": 0},
         )
         t.table.props("hide-bottom")
-        t.set_rows([{"n": "alice", "c": 1204}, {"n": "борис", "c": 37}])
-        layout.markdown_reader("## Сводка\n\nТекст с `кодом` и [ссылкой](#).\n\n> цитата")
+        t.set_rows([{"n": "alice", "c": 1204}, {"n": "bob", "c": 37}])
+        layout.markdown_reader("## Summary\n\nText with `code` and a [link](#).\n\n> a quote")
 
 
-PAGES = {"/": "Пример экрана", "/kit": "Компоненты"}
+PAGES = {"/": "Sample screen", "/kit": "Components"}
 # every page says it is a sample: nobody should mistake it for a working tool
-DEMO_NOTE = "Это демо-шаблон nicegui-kit: пример, чтобы посмотреть GUI в работе. Данные ненастоящие."
+DEMO_NOTE = "This is a nicegui-kit demo: a sample to see the GUI at work. The data is not real."
 
 
 def _shell(here: str, dark: int, max_width: str) -> None:
@@ -176,8 +177,8 @@ def index(dark: int = 0) -> None:
     dialog = _run_dialog()
     with layout.page_container():
         with ui.row().classes("ic-split w-full items-center justify-between"):
-            layout.heading("Пример: прогоны задач", level=1)
-            layout.button("Новый прогон", kind="primary", icon="add", on_click=dialog.open)
+            layout.heading("Sample: job runs", level=1)
+            layout.button("New run", kind="primary", icon="add", on_click=dialog.open)
         with ui.column().classes("w-full").style("gap: var(--ic-s4)"):
             _runs_section()
 
@@ -186,8 +187,8 @@ def index(dark: int = 0) -> None:
 def kit(dark: int = 0) -> None:
     _shell("/kit", dark, layout.PAGE_MAX_WIDTH_WIDE)
     with layout.page_container(max_width=layout.PAGE_MAX_WIDTH_WIDE):
-        layout.heading("Компоненты kit", level=1)
-        ui.label("Витрина для разработчика: каждый блок — один компонент во всех его состояниях.") \
+        layout.heading("Kit components", level=1)
+        ui.label("A gallery for developers: each card is one component in all its states.") \
             .classes("t-meta")
         with layout.grid():
             # pairs of similar height; a card fills its grid row, so no ragged holes
@@ -196,5 +197,5 @@ def kit(dark: int = 0) -> None:
                     part()
 
 
-ui.run(host="127.0.0.1", port=8787, show=False, reload=False, language="ru",
-       title="nicegui-kit · демо-шаблон")
+ui.run(host="127.0.0.1", port=8787, show=False, reload=False, language="en-US",
+       title="nicegui-kit · demo")

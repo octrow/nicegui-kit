@@ -19,7 +19,7 @@
 </picture>
 
 Экран выше — это `examples/showcase.py`, около 200 строк поверх кита. Строки кита по умолчанию
-русские; `texts.TEXTS.update(texts.EN)` переключает их на английский.
+русские; showcase переключает их на английский через `texts.TEXTS.update(texts.EN)`.
 
 ## Что внутри
 

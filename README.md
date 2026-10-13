@@ -18,7 +18,7 @@ with a live log monitor that survives page reloads and cancels cleanly.
 </picture>
 
 The screen above is `examples/showcase.py`, about 200 lines on top of the kit. Kit strings are Russian
-by default; `texts.TEXTS.update(texts.EN)` switches them to English.
+by default; the showcase switches them to English with `texts.TEXTS.update(texts.EN)`.
 
 ## What you get
 
