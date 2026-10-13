@@ -1,0 +1,16 @@
+name: Feature request
+description: A helper, token or pattern the kit should have.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you keep writing by hand?
+      description: The kit grows from code repeated in at least two apps. Show where you wrote it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would the kit API look like?
+      render: python
