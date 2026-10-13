@@ -191,6 +191,18 @@ def test_successful_run_collects_the_log_and_calls_on_line() -> None:
     asyncio.run(scenario())
 
 
+def test_crlf_line_endings_are_stripped() -> None:
+    async def scenario() -> None:
+        spawner = _Spawner()
+        crlf = [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'one\\r\\ntwo\\r\\n')"]
+        state = run_pool.submit(crlf, spawn=spawner)
+        assert state is not None
+        await spawner.drain()
+        assert state.lines == ["one", "two"]
+
+    asyncio.run(scenario())
+
+
 def test_raising_on_line_callback_does_not_kill_the_run() -> None:
     def boom(line: str) -> None:
         raise RuntimeError("ui.* from background task")
@@ -345,6 +357,7 @@ def test_grace_period_waits_for_the_child_to_exit_on_its_own() -> None:
     asyncio.run(scenario())
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="terminate() is TerminateProcess on Windows: SIGTERM can't be caught")
 def test_grace_period_returns_when_the_budget_runs_out_and_leaves_the_child_alive() -> None:
     async def scenario() -> None:
         spawner = _Spawner()

@@ -63,8 +63,8 @@ def test_css_carries_dark_tokens_and_no_tailwind_gaps_in_helpers() -> None:
     css = theme.css()
     assert "body.body--dark {" in css and "--ic-s4: 16px;" in css
     assert "prefers-reduced-motion" in css
-    sources = (Path(layout.__file__).read_text() + Path(theme.__file__).parent.joinpath(
-        "run_monitor.py").read_text())
+    sources = (Path(layout.__file__).read_text(encoding="utf-8") + Path(theme.__file__).parent.joinpath(
+        "run_monitor.py").read_text(encoding="utf-8"))
     assert '"gap-' not in sources and " gap-" not in sources.replace("Tailwind gap-*", "")
 
 

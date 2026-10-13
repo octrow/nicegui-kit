@@ -151,7 +151,7 @@ async def _pump_output(state: RunState, on_line: OnLine | None) -> None:
             continue
         if not raw:
             break
-        line = raw.decode(errors="replace").rstrip("\n")
+        line = raw.decode(errors="replace").rstrip("\r\n")  # \r: CRLF on Windows
         state.lines.append(line)
         if on_line is not None:
             try:
@@ -187,7 +187,9 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
             limit=STREAM_LINE_LIMIT,
         )
     except OSError as exc:  # нет бинарника / cwd / прав: это FAILED, а не "остановлено"
-        state.lines.append(tr("spawn_failed", error=exc))
+        # WinError 2 has no filename, so name the command ourselves
+        error = exc if exc.filename else f"{state.argv[0]}: {exc}"
+        state.lines.append(tr("spawn_failed", error=error))
         state.status = FAILED
         return
     if state.cancelled:  # cancel пришёл, пока процесс ещё спавнился
