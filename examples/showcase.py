@@ -6,6 +6,7 @@
 run, watch the list); `/kit` is the component gallery.
 """
 
+import sys
 from datetime import datetime, timedelta
 
 from nicegui import ui
@@ -15,15 +16,15 @@ from nicegui_kit import layout, run_monitor, run_pool, table, texts, theme
 PERIODS = {"Day": timedelta(days=1), "Week": timedelta(days=7), "All": None}
 STATUSES = {"All statuses": None, "Running": run_pool.PENDING_STATUSES, "Done": {run_pool.DONE},
             "Error": {run_pool.FAILED}}
-DEMO_RUNS = (("Nightly scrape", "echo collecting; sleep 2; echo done"),
-             ("Trial run", "echo start; echo boom >&2; exit 3"))
+DEMO_RUNS = (("Nightly scrape", "import time; print('collecting', flush=True); time.sleep(2); print('done')"),
+             ("Trial run", "import sys; print('start', flush=True); print('boom', file=sys.stderr); sys.exit(3)"))
 
 texts.TEXTS.update(texts.EN)  # kit strings are Russian by default
 theme.apply_theme()
 
 
 def _submit(label: str, script: str) -> None:
-    run_pool.submit(["sh", "-c", script], label=label)
+    run_pool.submit([sys.executable, "-c", script], label=label)  # no shell: runs on Windows too
 
 
 def _run_dialog() -> ui.dialog:
@@ -39,7 +40,7 @@ def _run_dialog() -> ui.dialog:
         def start() -> None:
             if not name.validate():
                 return
-            _submit(name.value, "echo working; sleep 3; echo ok")
+            _submit(name.value, "import time; print('working', flush=True); time.sleep(3); print('ok')")
             ui.notify(f"Run \"{name.value}\" started"
                       + (f", the report will go to {mail.value}" if mail.value else ""), type="positive")
             name.value = ""
