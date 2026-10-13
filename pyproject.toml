@@ -1,0 +1,51 @@
+[project]
+name = "nicegui-kit"
+version = "0.1.0"
+description = "NiceGUI theme and toolkit for internal tools: WCAG AA light/dark theme, layout helpers, subprocess run pool with a live log monitor"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "src/nicegui_kit/assets/fonts/LICENSE.txt"]
+authors = [{ name = "Daniil Petrov" }]
+requires-python = ">=3.12"
+keywords = ["nicegui", "gui", "theme", "dark-mode", "design-system", "dashboard", "subprocess", "quasar", "admin-panel"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Software Development :: Widget Sets",
+]
+dependencies = ["nicegui>=3.15,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[project.urls]
+Homepage = "https://github.com/octrow/nicegui-kit"
+Issues = "https://github.com/octrow/nicegui-kit/issues"
+Changelog = "https://github.com/octrow/nicegui-kit/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nicegui_kit"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/docs", "/.claude", "/.github", "uv.lock"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # long CSS lines in theme.py
