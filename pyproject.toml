@@ -1,7 +1,7 @@
 [project]
 name = "nicegui-kit"
 version = "0.1.0"
-description = "NiceGUI theme and toolkit for internal tools: WCAG AA light/dark theme, layout helpers, subprocess run pool with a live log monitor"
+description = "NiceGUI theme and toolkit: WCAG AA light/dark theme, layout helpers, subprocess pool with live logs"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE", "src/nicegui_kit/assets/fonts/LICENSE.txt"]
