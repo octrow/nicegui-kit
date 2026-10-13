@@ -9,7 +9,7 @@ The kit (https://github.com/octrow/nicegui-kit, `pip install nicegui-kit`) is th
 
 - `examples/showcase.py` — the living reference (header + nav, filters, form dialog, run monitor,
   component gallery). Mirror its structure.
-- `README.md` — the API (`theme`, `layout`, `table`, `hotkeys`, `run_pool`, `run_monitor`);
+- `docs/api.md` — the API (`theme`, `layout`, `table`, `hotkeys`, `run_pool`, `run_monitor`);
   check signatures in `src/nicegui_kit/*.py` when in doubt.
 
 ## Wiring
