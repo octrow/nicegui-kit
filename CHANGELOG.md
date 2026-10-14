@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.1] - 2026-10-15
 
 ### Fixed
 
@@ -29,4 +29,5 @@ First public release.
 - `examples/showcase.py`: a sample job runner screen and a component gallery.
 - Agent skill `nicegui-kit-gui` for Claude Code and other coding agents.
 
+[0.1.1]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.1
 [0.1.0]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.0
