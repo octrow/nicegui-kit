@@ -17,10 +17,7 @@ gets a light and dark theme that passes WCAG AA, a self-hosted Inter font that w
 helpers that keep spacing consistent. `run_pool` and `run_monitor` add the part most of these tools need:
 start a subprocess from a button and watch its log live, with cancel that really stops it.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/runs-dark.png">
-  <img alt="Sample job runner screen built with nicegui-kit: search, status filter, period toggle, a finished run and a failed run with its log open" src="docs/images/runs-light.png">
-</picture>
+<img src="docs/images/demo.gif" width="100%" alt="nicegui-kit demo, about 15 seconds: start a run from a dialog, its log opens and streams live until done, search narrows the list, then the page switches to the dark theme">
 
 This screen is [`examples/showcase.py`](examples/showcase.py), about 200 lines on top of the kit.
 
