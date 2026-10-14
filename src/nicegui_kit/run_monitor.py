@@ -150,12 +150,10 @@ def attach_run_monitor(
     views: dict[str, RunView] = {}
 
     def _tick() -> None:
-        states = [
-            state
-            for state in run_pool.RUNS.values()
-            if run_filter is None or run_filter(state)
-        ]
-        empty_label.set_visibility(not states)
+        # Вид есть у каждого прогона пула, в порядке пула; фильтр только прячет его.
+        # Удалять отфильтрованные нельзя: пересозданный вид встал бы в конец списка.
+        states = list(run_pool.RUNS.values())
+        any_shown = False
         for state in states:
             view = views.get(state.run_id)
             if view is None:
@@ -166,9 +164,12 @@ def attach_run_monitor(
                 views[state.run_id] = view
                 if state is states[-1]:
                     view.expansion.open()  # свежий — раскрыт; закрыть вправе юзер
+            shown = run_filter is None or run_filter(state)
+            view.expansion.set_visibility(shown)
+            any_shown = any_shown or shown
             _update_run_view(view, state)
-        alive = {state.run_id for state in states}
-        for run_id in [run_id for run_id in views if run_id not in alive]:
+        empty_label.set_visibility(not any_shown)
+        for run_id in [run_id for run_id in views if run_id not in run_pool.RUNS]:
             views.pop(run_id).expansion.delete()
 
     ui.timer(poll_interval_seconds, _tick)
