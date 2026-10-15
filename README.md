@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.svg" width="100%" alt="nicegui-kit: the same run list drawn in the kit's light theme on the left and its dark theme on the right. 37 text/background pairs per theme, all at least 4.5:1 contrast.">
+  <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero.svg" width="100%" alt="nicegui-kit: the same run list drawn in the kit's light theme on the left and its dark theme on the right. 37 text/background pairs per theme, all at least 4.5:1 contrast.">
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@ gets a light and dark theme that passes WCAG AA, a self-hosted Inter font that w
 helpers that keep spacing consistent. `run_pool` and `run_monitor` add the part most of these tools need:
 start a subprocess from a button and watch its log live, with cancel that really stops it.
 
-<img src="docs/images/demo.gif" width="100%" alt="nicegui-kit demo, about 15 seconds: start a run from a dialog, its log opens and streams live until done, search narrows the list, then the page switches to the dark theme">
+<img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/demo.gif" width="100%" alt="nicegui-kit demo, about 15 seconds: start a run from a dialog, its log opens and streams live until done, search narrows the list, then the page switches to the dark theme">
 
 This screen is [`examples/showcase.py`](examples/showcase.py), about 200 lines on top of the kit.
 
@@ -79,16 +79,16 @@ showcase does.
 
 The `/kit` page of the showcase shows each component in all its states:
 
-<img alt="Component gallery: data states, status chips and a warning banner, input fields with hints, a table and a markdown block" src="docs/images/gallery-light.png">
+<img alt="Component gallery: data states, status chips and a warning banner, input fields with hints, a table and a markdown block" src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/gallery-light.png">
 
-Signatures and details for every module are in the [API reference](docs/api.md). The design rules
-behind the theme (tokens, type scale, do's and don'ts) are in [DESIGN.md](DESIGN.md).
+Signatures and details for every module are in the [API reference](https://github.com/octrow/nicegui-kit/blob/main/docs/api.md). The design rules
+behind the theme (tokens, type scale, do's and don'ts) are in [DESIGN.md](https://github.com/octrow/nicegui-kit/blob/main/DESIGN.md).
 
 ## How a run works
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/flow-dark.svg">
-  <img src="docs/images/flow-light.svg" width="100%" alt="Your page calls run_pool.submit(argv); the pool runs up to 3 subprocesses and queues up to 20; each output line goes to on_line; the run monitor polls once a second and edits its widgets in place.">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-dark.svg">
+  <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-light.svg" width="100%" alt="Your page calls run_pool.submit(argv); the pool runs up to 3 subprocesses and queues up to 20; each output line goes to on_line; the run monitor polls once a second and edits its widgets in place.">
 </picture>
 
 Your page calls `run_pool.submit(argv)`. The pool runs up to 3 processes at once and queues up to 20
@@ -139,9 +139,9 @@ uv run pytest -q
 ```
 
 The README images are built from the kit's own tokens: `uv run python docs/images/readme_svgs.py`.
-Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
+Contributions are welcome, see [CONTRIBUTING.md](https://github.com/octrow/nicegui-kit/blob/main/CONTRIBUTING.md). Security issues: [SECURITY.md](https://github.com/octrow/nicegui-kit/blob/main/SECURITY.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The bundled Inter font is under the SIL Open Font License 1.1, see
+MIT, see [LICENSE](https://github.com/octrow/nicegui-kit/blob/main/LICENSE). The bundled Inter font is under the SIL Open Font License 1.1, see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
