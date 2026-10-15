@@ -16,8 +16,8 @@ R = theme.RADII["r-lg"]
 HERO_H = 522
 FLOW_H, FLOW_GAP, BOX_Y, BOX_H = 308, 26, 56, 196
 BOX_W = (W - 128 - 3 * FLOW_GAP) / 4
-# phone variants: drawn 600 wide so a 390px screen shows 18px text at ~11.7px
-MW, MPAD = 600, 32
+# phone variants: drawn 520 wide; GitHub shows them 324px wide on a 390px phone, so 18 -> ~11.2px
+MW, MPAD = 520, 24
 M_BAND = 480  # height of the light band in hero-mobile.svg
 M_HERO_H = 790
 M_ARROW = 44  # vertical gap between flow boxes
