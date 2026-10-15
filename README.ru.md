@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/images/hero.svg" width="100%" alt="nicegui-kit: один и тот же список прогонов слева в светлой теме кита, справа в тёмной. 37 пар «текст на фоне» в каждой теме, у всех контраст не ниже 4.5:1.">
+  <picture>
+    <source media="(max-width: 600px)" srcset="docs/images/hero-mobile.svg">
+    <img src="docs/images/hero.svg" width="100%" alt="nicegui-kit: один и тот же список прогонов слева в светлой теме кита, справа в тёмной. 37 пар «текст на фоне» в каждой теме, у всех контраст не ниже 4.5:1.">
+  </picture>
 </p>
 
 <p align="center">
@@ -89,6 +92,8 @@ uv run python examples/showcase.py   # http://127.0.0.1:8787, ?dark=1 forces dar
 ## Как устроен прогон
 
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/images/flow-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/images/flow-mobile-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/flow-dark.svg">
   <img src="docs/images/flow-light.svg" width="100%" alt="Страница вызывает run_pool.submit(argv); пул запускает до 3 подпроцессов и держит в очереди до 20; каждая строка вывода уходит в on_line; монитор раз в секунду опрашивает пул и меняет виджеты на месте.">
 </picture>

@@ -13,9 +13,16 @@ W = 1200
 SANS = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 R = theme.RADII["r-lg"]
-HERO_H = 490
+HERO_H = 522
 FLOW_H, FLOW_GAP, BOX_Y, BOX_H = 308, 26, 56, 196
 BOX_W = (W - 128 - 3 * FLOW_GAP) / 4
+# phone variants: drawn 600 wide so a 390px screen shows 18px text at ~11.7px
+MW, MPAD = 600, 32
+M_BAND = 480  # height of the light band in hero-mobile.svg
+M_HERO_H = 790
+M_ARROW = 44  # vertical gap between flow boxes
+TAGLINE = ("A light and dark theme, layout helpers", "and a subprocess pool with a live log",
+           "for NiceGUI tools that run jobs.")
 # chip fills: the kit draws these with color-mix() in CSS, which an SVG image can't use
 CHIP_BG = {"light": {"ok": "#E3F2E9", "err": "#FBE4E1"}, "dark": {"ok": "#1D3428", "err": "#3A2220"}}
 
@@ -86,11 +93,42 @@ def hero() -> str:
 '''
 
 
+def hero_mobile() -> str:
+    """Phone hero: the light theme on top with the title, the same run list in dark below."""
+    light, dark = theme.TOKENS["light"], theme.TOKENS["dark"]
+    right = MW - MPAD
+    note = (f"{len(theme.TEXT_PAIRS)} text/background pairs per theme, tested at WCAG AA · "
+            f"lowest {_min_ratio('light'):.2f}:1 light, {_min_ratio('dark'):.2f}:1 dark")
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{MW}" height="{M_HERO_H}" viewBox="0 0 {MW} {M_HERO_H}" role="img" aria-labelledby="t d">
+<title id="t">nicegui-kit</title>
+<desc id="d">The same run list drawn with the kit's light tokens on top and its dark tokens below. {note}.</desc>
+<defs><clipPath id="all"><rect width="{MW}" height="{M_HERO_H}" rx="16"/></clipPath></defs>
+<g clip-path="url(#all)" font-family="{SANS}">
+<rect width="{MW}" height="{M_BAND}" fill="{light["canvas"]}"/>
+<rect y="{M_BAND}" width="{MW}" height="{M_HERO_H - M_BAND}" fill="{dark["canvas"]}"/>
+<text x="{MPAD}" y="52" font-family="{MONO}" font-size="18" fill="{light["text-muted"]}">NiceGUI · Python ≥3.12 · MIT</text>
+<text x="{right}" y="52" text-anchor="end" font-family="{MONO}" font-size="18" fill="{light["accent-700"]}">light</text>
+<text x="{MPAD - 2}" y="116" font-size="56" font-weight="700" letter-spacing="-1.2" fill="{light["text"]}">nicegui-kit</text>
+{_tagline(light, MPAD, 158, 24)}
+{_run_rows("light", MPAD, 254, MW - 2 * MPAD)}
+{_contrast_note("light", MPAD, 450, "start")}
+<line x1="0" y1="{M_BAND}" x2="{MW}" y2="{M_BAND}" stroke="{light["accent-600"]}" stroke-width="2"/>
+<text x="{MPAD}" y="{M_BAND + 52}" font-family="{MONO}" font-size="18" fill="{dark["accent-700"]}">dark</text>
+<text x="{right}" y="{M_BAND + 52}" text-anchor="end" font-family="{MONO}" font-size="18" fill="{dark["text-muted"]}">one token dict</text>
+{_run_rows("dark", MPAD, M_BAND + 84, MW - 2 * MPAD)}
+{_contrast_note("dark", MPAD, M_BAND + 280, "start")}
+</g>
+</svg>
+'''
+
+
 def _scene(name: str) -> str:
     """Everything that changes with the theme: canvas, title, run list, contrast note."""
     t = theme.TOKENS[name]
+    left = name == "light"
     return (f'<rect width="{W}" height="{HERO_H}" fill="{t["canvas"]}"/>'
-            + _title(t) + _run_rows(name) + _contrast_note(name))
+            + _title(t) + _run_rows(name, 64, 294, W - 128)
+            + _contrast_note(name, 64 if left else W - 64, 490, "start" if left else "end"))
 
 
 def _title(t: dict[str, str]) -> str:
@@ -99,27 +137,34 @@ def _title(t: dict[str, str]) -> str:
         f'NiceGUI · Python ≥3.12 · MIT</text>'
         f'<text x="62" y="138" font-size="68" font-weight="700" letter-spacing="-1.5" fill="{t["text"]}">'
         f'nicegui-kit</text>'
-        f'<text x="64" y="186" font-size="26" fill="{t["text-secondary"]}">'
-        f'A light and dark theme, layout helpers and a subprocess pool with a live log</text>'
-        f'<text x="64" y="218" font-size="26" fill="{t["text-secondary"]}">'
-        f'for NiceGUI tools that run jobs.</text>'
+        + _tagline(t, 64, 186, 26)
     )
 
 
-def _run_rows(name: str) -> str:
+def _tagline(t: dict[str, str], x: float, y: float, size: int) -> str:
+    """Three short lines, so on the desktop hero the tagline stays left of the seam."""
+    step = round(size * 1.25)
+    return "".join(f'<text x="{x}" y="{y + i * step}" font-size="{size}" fill="{t["text-secondary"]}">{s}</text>'
+                   for i, s in enumerate(TAGLINE))
+
+
+def _run_rows(name: str, x: float, y: float, w: float) -> str:
+    """Two run cards, `w` wide, top-left at (x, y); the time sits 100 from the right edge."""
     t = theme.TOKENS[name]
     card = f'rx="{R}" fill="{t["surface"]}" stroke="{t["border"]}"'
+    time_x = x + w - 100
+    done, err = Chip("done", "ok", 76), Chip("error · code 3", "err", 136)
     return (
-        f'<rect x="64" y="262" width="1072" height="56" {card}/>'
-        f'<text x="88" y="298" font-size="22" font-weight="600" fill="{t["text"]}">Nightly scrape</text>'
-        + _chip(name, 930, 275, Chip("done", "ok", 76))
-        + f'<text x="1036" y="297" font-size="20" fill="{t["text-secondary"]}">0:02</text>'
-        f'<rect x="64" y="330" width="1072" height="88" {card}/>'
-        f'<text x="88" y="366" font-size="22" font-weight="600" fill="{t["text"]}">Trial run</text>'
-        + _chip(name, 870, 343, Chip("error · code 3", "err", 136))
-        + f'<text x="1036" y="365" font-size="20" fill="{t["text-secondary"]}">0:00</text>'
-        f'<rect x="80" y="380" width="1040" height="28" rx="{theme.RADII["r-sm"]}" fill="{t["surface-sunken"]}"/>'
-        f'<text x="96" y="400" font-family="{MONO}" font-size="18" fill="{t["text"]}">start · boom</text>'
+        f'<rect x="{x}" y="{y}" width="{w}" height="56" {card}/>'
+        f'<text x="{x + 24}" y="{y + 36}" font-size="22" font-weight="600" fill="{t["text"]}">Nightly scrape</text>'
+        + _chip(name, time_x - 30 - done.width, y + 13, done)
+        + f'<text x="{time_x}" y="{y + 35}" font-size="20" fill="{t["text-secondary"]}">0:02</text>'
+        f'<rect x="{x}" y="{y + 68}" width="{w}" height="88" {card}/>'
+        f'<text x="{x + 24}" y="{y + 104}" font-size="22" font-weight="600" fill="{t["text"]}">Trial run</text>'
+        + _chip(name, time_x - 30 - err.width, y + 81, err)
+        + f'<text x="{time_x}" y="{y + 103}" font-size="20" fill="{t["text-secondary"]}">0:00</text>'
+        f'<rect x="{x + 16}" y="{y + 118}" width="{w - 32}" height="28" rx="{theme.RADII["r-sm"]}" fill="{t["surface-sunken"]}"/>'
+        f'<text x="{x + 32}" y="{y + 138}" font-family="{MONO}" font-size="18" fill="{t["text"]}">start · boom</text>'
     )
 
 
@@ -130,11 +175,10 @@ def _chip(name: str, x: float, y: float, chip: Chip) -> str:
             f'font-weight="600" fill="{ink}">{chip.text}</text>')
 
 
-def _contrast_note(name: str) -> str:
-    """Each half states its own lowest pair, aligned to its outer edge."""
-    left = name == "light"
-    return (f'<text x="{64 if left else 1136}" y="458" font-family="{MONO}" font-size="18" '
-            f'text-anchor="{"start" if left else "end"}" fill="{theme.TOKENS[name]["text-muted"]}">'
+def _contrast_note(name: str, x: float, y: float, anchor: str) -> str:
+    """Each theme states its own lowest pair."""
+    return (f'<text x="{x}" y="{y}" font-family="{MONO}" font-size="18" '
+            f'text-anchor="{anchor}" fill="{theme.TOKENS[name]["text-muted"]}">'
             f'{len(theme.TEXT_PAIRS)} text pairs · all ≥ 4.5:1 · lowest {_min_ratio(name):.2f}:1</text>')
 
 
@@ -143,7 +187,7 @@ def flow(name: str) -> str:
     parts = []
     for i, step in enumerate(STEPS):
         x = 64 + i * (BOX_W + FLOW_GAP)
-        parts.append(_box(t, x, step))
+        parts.append(_box(t, x, BOX_Y, BOX_W, BOX_H, step))
         if i:
             parts.append(_arrow(t, x))
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{FLOW_H}" viewBox="0 0 {W} {FLOW_H}" role="img" aria-labelledby="t d">
@@ -155,13 +199,45 @@ def flow(name: str) -> str:
 '''
 
 
-def _box(t: dict[str, str], x: float, step: Step) -> str:
-    out = [f'<rect x="{x}" y="{BOX_Y}" width="{BOX_W}" height="{BOX_H}" rx="{R}" fill="{t["surface"]}" stroke="{t["border-strong"]}"/>',
-           f'<text x="{x + 16}" y="{BOX_Y + 40}" font-size="24" font-weight="650" fill="{t["text"]}">{step.title}</text>',
-           f'<text x="{x + 16}" y="{BOX_Y + 72}" font-family="{MONO}" font-size="18" fill="{t["accent-700"]}">{step.code}</text>']
-    out += [f'<text x="{x + 16}" y="{BOX_Y + 110 + i * 30}" font-size="20" fill="{t["text-secondary"]}">{s}</text>'
+def flow_mobile(name: str) -> str:
+    """Phone flow: the same four boxes stacked, arrows pointing down."""
+    t = theme.TOKENS[name]
+    parts, y, w = [], MPAD, MW - 2 * MPAD
+    for i, step in enumerate(STEPS):
+        if i:
+            parts.append(_arrow_down(t, y))
+        h = _box_h(step)
+        parts.append(_box(t, MPAD, y, w, h, step))
+        y += h + M_ARROW
+    height = y - M_ARROW + MPAD
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{MW}" height="{height}" viewBox="0 0 {MW} {height}" role="img" aria-labelledby="t d">
+<title id="t">How a run flows through nicegui-kit</title>
+<desc id="d">Your page calls run_pool.submit with an argv list; the pool runs up to {run_pool.MAX_PARALLEL_RUNS} subprocesses and queues up to {run_pool.MAX_TOTAL_PENDING}; each output line goes to on_line; the run monitor polls every second and updates its widgets in place.</desc>
+<rect width="{MW}" height="{height}" rx="16" fill="{t["canvas"]}"/>
+<g font-family="{SANS}">{"".join(parts)}</g>
+</svg>
+'''
+
+
+def _box_h(step: Step) -> float:
+    """Height that fits the step's text: the desktop BOX_H for three lines."""
+    return BOX_H - 30 * (3 - len(step.lines))
+
+
+def _box(t: dict[str, str], x: float, y: float, w: float, h: float, step: Step) -> str:
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{R}" fill="{t["surface"]}" stroke="{t["border-strong"]}"/>',
+           f'<text x="{x + 16}" y="{y + 40}" font-size="24" font-weight="650" fill="{t["text"]}">{step.title}</text>',
+           f'<text x="{x + 16}" y="{y + 72}" font-family="{MONO}" font-size="18" fill="{t["accent-700"]}">{step.code}</text>']
+    out += [f'<text x="{x + 16}" y="{y + 110 + i * 30}" font-size="20" fill="{t["text-secondary"]}">{s}</text>'
             for i, s in enumerate(step.lines)]
     return "".join(out)
+
+
+def _arrow_down(t: dict[str, str], box_y: float) -> str:
+    """Arrow in the gap above the box at box_y."""
+    mid = MW / 2
+    return (f'<path d="M{mid} {box_y - M_ARROW + 4} v{M_ARROW - 14}" stroke="{t["accent-600"]}" stroke-width="3"/>'
+            f'<path d="M{mid} {box_y - 3} l-9 -12 h18 z" fill="{t["accent-600"]}"/>')
 
 
 def _arrow(t: dict[str, str], box_x: float) -> str:
@@ -173,6 +249,8 @@ def _arrow(t: dict[str, str], box_x: float) -> str:
 
 if __name__ == "__main__":
     (OUT / "hero.svg").write_text(hero(), encoding="utf-8")
+    (OUT / "hero-mobile.svg").write_text(hero_mobile(), encoding="utf-8")
     for theme_name in ("light", "dark"):
         (OUT / f"flow-{theme_name}.svg").write_text(flow(theme_name), encoding="utf-8")
+        (OUT / f"flow-mobile-{theme_name}.svg").write_text(flow_mobile(theme_name), encoding="utf-8")
     print("ok")

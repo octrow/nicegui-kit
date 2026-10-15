@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero.svg" width="100%" alt="nicegui-kit: the same run list drawn in the kit's light theme on the left and its dark theme on the right. 37 text/background pairs per theme, all at least 4.5:1 contrast.">
+  <picture>
+    <source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero-mobile.svg">
+    <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero.svg" width="100%" alt="nicegui-kit: the same run list drawn in the kit's light theme on the left and its dark theme on the right. 37 text/background pairs per theme, all at least 4.5:1 contrast.">
+  </picture>
 </p>
 
 <p align="center">
@@ -87,6 +90,8 @@ behind the theme (tokens, type scale, do's and don'ts) are in [DESIGN.md](https:
 ## How a run works
 
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-mobile-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-dark.svg">
   <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-light.svg" width="100%" alt="Your page calls run_pool.submit(argv); the pool runs up to 3 subprocesses and queues up to 20; each output line goes to on_line; the run monitor polls once a second and edits its widgets in place.">
 </picture>
