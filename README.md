@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero-mobile.svg">
-    <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero.svg" width="100%" alt="nicegui-kit: the same run list drawn in the kit's light theme on the left and its dark theme on the right. 37 text/background pairs per theme, all at least 4.5:1 contrast.">
+    <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/hero.svg" width="100%" alt="nicegui-kit: the same run list drawn in the kit's light theme and its dark theme side by side (stacked on phones). 37 text/background pairs per theme, all at least 4.5:1 contrast.">
   </picture>
 </p>
 

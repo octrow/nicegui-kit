@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-10-15
+
+### Changed
+
+- README images get phone-width variants, so text stays readable on a 390px screen.
+
 ## [0.1.2] - 2026-10-15
 
 ### Changed
@@ -35,6 +41,7 @@ First public release.
 - `examples/showcase.py`: a sample job runner screen and a component gallery.
 - Agent skill `nicegui-kit-gui` for Claude Code and other coding agents.
 
+[0.1.3]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.3
 [0.1.2]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.2
 [0.1.1]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.1
 [0.1.0]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.0
