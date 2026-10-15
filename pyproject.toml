@@ -1,6 +1,6 @@
 [project]
 name = "nicegui-kit"
-version = "0.1.1"
+version = "0.1.2"
 description = "NiceGUI theme and toolkit: WCAG AA light/dark theme, layout helpers, subprocess pool with live logs"
 readme = "README.md"
 license = "MIT"
