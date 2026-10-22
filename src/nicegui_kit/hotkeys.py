@@ -16,11 +16,13 @@ DEFAULT_IGNORE = ["input", "select", "textarea"]
 
 
 def passes(event: KeyEventArguments) -> bool:
-    """True for a plain keydown (not keyup, no Ctrl held) — the two guards every
+    """True for a plain keydown (not keyup, no Ctrl/Alt/Meta held; Shift is fine,
+    "?" needs it) — the two guards every
     hotkey handler needs before its own key dispatch. A pure predicate (no
     `ui.*` call), so it is testable without a running page.
     """
-    return event.action.keydown and not event.modifiers.ctrl
+    mods = event.modifiers
+    return event.action.keydown and not (mods.ctrl or mods.alt or mods.meta)
 
 
 def on_keydown(

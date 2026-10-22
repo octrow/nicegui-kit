@@ -53,6 +53,8 @@ def run_status_text(state: RunState) -> tuple[str, str]:
         text = tr("status_done")
     elif state.status == run_pool.CANCELLED:
         text = tr("status_cancelled")
+    elif state.return_code is None:  # не запустился: кода выхода нет
+        text = tr("status_error")
     else:
         text = tr("status_failed", code=state.return_code)
     return text, css_class

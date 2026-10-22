@@ -21,3 +21,8 @@ def test_switch_is_read_at_call_time() -> None:
 def test_russian_plurals() -> None:
     assert [texts.lines_word(n) for n in (1, 2, 5, 11, 21, 22, 112)] == [
         "строка", "строки", "строк", "строк", "строка", "строки", "строк"]
+
+
+def test_failed_run_without_exit_code_does_not_show_none() -> None:
+    state = run_pool.RunState(run_id="x", argv=["nope"], status=run_pool.FAILED)
+    assert run_monitor.run_status_text(state) == ("ошибка", "ic-status--error")

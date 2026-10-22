@@ -186,9 +186,10 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
             env=state.env or None,
             limit=STREAM_LINE_LIMIT,
         )
-    except OSError as exc:  # нет бинарника / cwd / прав: это FAILED, а не "остановлено"
+    # нет бинарника / cwd / прав, \0 или не-str в argv: это FAILED, а не "остановлено"
+    except (OSError, ValueError, TypeError) as exc:
         # WinError 2 has no filename, so name the command ourselves
-        error = exc if exc.filename else f"{state.argv[0]}: {exc}"
+        error = exc if getattr(exc, "filename", None) else f"{state.argv[0]}: {exc}"
         state.lines.append(tr("spawn_failed", error=error))
         state.status = FAILED
         return
@@ -204,26 +205,6 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
 
 def _finalize(state: RunState) -> None:
     """Отмена таски (teardown NiceGUI, бюджет 2 c) не должна оставлять сироту."""
-    process = state.process
-    if process is not None and process.returncode is None:
-        with contextlib.suppress(ProcessLookupError):
-            process.terminate()
-    if state.status in PENDING_STATUSES:
-        state.status = CANCELLED
-    if state.finished_at is None:
-        state.finished_at = _now()
-
-
-def request_cancel(run_id: str) -> bool:
-    """Останавливает ран: queued — сразу, running — сигналом; False если нечего гасить."""
-    state = RUNS.get(run_id)
-    if state is None or state.status not in PENDING_STATUSES:
-        return False
-    if state.status == QUEUED:
-        state.cancelled = True
-        state.status = CANCELLED
-        state.finished_at = _now()
-        return True
     process = state.process
     if process is None:
         state.cancelled = True

@@ -77,7 +77,7 @@ Gaps come from kit classes (`ic-page`, `ic-card`, `ic-stack`, `ic-actions`,
 
 `on_keydown(handler, *, ignore=("input", "select", "textarea"))` — a
 `ui.keyboard` that calls `handler(event)` only on a plain keydown (not keyup,
-no Ctrl held): the two guards every page-level hotkey binding needs before its
+no Ctrl, Alt or Meta held; Shift is allowed): the two guards every page-level hotkey binding needs before its
 own key dispatch runs. `passes(event) -> bool` is the underlying predicate,
 exposed as a pure function for testing without a running page.
 

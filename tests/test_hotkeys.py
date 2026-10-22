@@ -15,12 +15,15 @@ from nicegui.testing import User
 from nicegui_kit import hotkeys
 
 
-def _event(*, keydown: bool = True, ctrl: bool = False, key: str = "a") -> KeyEventArguments:
+def _event(
+    *, keydown: bool = True, ctrl: bool = False, alt: bool = False, meta: bool = False, shift: bool = False,
+    key: str = "a",
+) -> KeyEventArguments:
     return KeyEventArguments(
         sender=None,
         client=None,
         action=KeyboardAction(keydown=keydown, keyup=not keydown, repeat=False),
-        modifiers=KeyboardModifiers(alt=False, ctrl=ctrl, meta=False, shift=False),
+        modifiers=KeyboardModifiers(alt=alt, ctrl=ctrl, meta=meta, shift=shift),
         key=KeyboardKey(name=key, code=key, location=0),
     )
 
@@ -39,6 +42,16 @@ def test_passes_is_false_for_keyup() -> None:
 
 def test_passes_is_false_when_ctrl_is_held() -> None:
     assert hotkeys.passes(_event(keydown=True, ctrl=True)) is False
+
+
+def test_passes_is_false_when_alt_or_meta_is_held() -> None:
+    # Alt+1 switches browser tabs on Linux, Cmd+R reloads on macOS: not page actions
+    assert hotkeys.passes(_event(alt=True)) is False
+    assert hotkeys.passes(_event(meta=True)) is False
+
+
+def test_passes_lets_shift_through() -> None:
+    assert hotkeys.passes(_event(shift=True, key="?")) is True  # "?" needs Shift on most layouts
 
 
 @ui.page("/")

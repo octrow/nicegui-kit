@@ -266,6 +266,29 @@ def test_missing_executable_marks_the_run_failed_not_cancelled() -> None:
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("argv", [["python", "-c", "print('a\0b')"], ["python", 3]])
+def test_argv_the_os_rejects_marks_the_run_failed_not_cancelled(argv) -> None:
+    async def scenario() -> None:
+        spawner = _Spawner()
+        state = run_pool.submit(argv, spawn=spawner)
+        assert state is not None
+        await spawner.drain()
+        assert state.status == "failed"
+        assert state.lines and state.lines[-1].startswith("не удалось запустить: python: ")
+
+    asyncio.run(scenario())
+
+
+def test_cancel_after_the_process_exited_on_its_own_does_not_mark_it_cancelled() -> None:
+    class _Exited:
+        returncode = 0
+
+    state = _fabricate(run_pool.RUNNING)
+    state.process = _Exited()
+    assert run_pool.request_cancel(state.run_id) is False
+    assert state.cancelled is False
+
+
 def test_output_line_longer_than_stream_limit_does_not_kill_the_run() -> None:
     long_line = [sys.executable, "-c", "print('x' * 200_000); print('tail')"]
 
