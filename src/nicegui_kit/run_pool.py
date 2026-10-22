@@ -206,6 +206,26 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
 def _finalize(state: RunState) -> None:
     """Отмена таски (teardown NiceGUI, бюджет 2 c) не должна оставлять сироту."""
     process = state.process
+    if process is not None and process.returncode is None:
+        with contextlib.suppress(ProcessLookupError):
+            process.terminate()
+    if state.status in PENDING_STATUSES:
+        state.status = CANCELLED
+    if state.finished_at is None:
+        state.finished_at = _now()
+
+
+def request_cancel(run_id: str) -> bool:
+    """Останавливает ран: queued — сразу, running — сигналом; False если нечего гасить."""
+    state = RUNS.get(run_id)
+    if state is None or state.status not in PENDING_STATUSES:
+        return False
+    if state.status == QUEUED:
+        state.cancelled = True
+        state.status = CANCELLED
+        state.finished_at = _now()
+        return True
+    process = state.process
     if process is None:
         state.cancelled = True
         return True  # ещё спавнится: _execute увидит cancelled и погасит сам
