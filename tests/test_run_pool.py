@@ -173,6 +173,30 @@ def test_cancel_while_the_process_is_still_spawning_is_not_lost(monkeypatch) -> 
     asyncio.run(scenario())
 
 
+def test_cancel_after_the_process_exited_on_its_own_keeps_the_run_done(monkeypatch) -> None:
+    real_pump = run_pool._pump_output
+    accepted: list[bool] = []
+
+    async def pump_after_exit(state, on_line):
+        # процесс уже завершился сам, а пайп ещё не дочитан
+        await state.process.wait()
+        accepted.append(run_pool.request_cancel(state.run_id))
+        await real_pump(state, on_line)
+
+    monkeypatch.setattr(run_pool, "_pump_output", pump_after_exit)
+
+    async def scenario() -> None:
+        spawner = _Spawner()
+        state = run_pool.submit(PRINT_OK, spawn=spawner)
+        assert state is not None
+        await spawner.drain()
+        assert accepted == [False]
+        assert state.return_code == 0
+        assert state.status == "done"
+
+    asyncio.run(scenario())
+
+
 # --- 5-6: финальные статусы и лог -------------------------------------------
 
 
