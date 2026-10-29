@@ -189,7 +189,7 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
     # нет бинарника / cwd / прав, \0 или не-str в argv: это FAILED, а не "остановлено"
     except (OSError, ValueError, TypeError) as exc:
         # WinError 2 has no filename, so name the command ourselves
-        error = exc if getattr(exc, "filename", None) else f"{state.argv[0]}: {exc}"
+        error = exc if getattr(exc, "filename", None) or not state.argv else f"{state.argv[0]}: {exc}"
         state.lines.append(tr("spawn_failed", error=error))
         state.status = FAILED
         return
