@@ -88,23 +88,22 @@ def _create_run_view(
     """Шапка — колонки: [название ……] [статус-бейдж] [длительность], статус
     и время стоят ровно друг под другом во всех строках. Внутри — один лог со своей
     шапкой: «Вывод: N строк» слева, действия справа."""
-    with runs_container:
-        with ui.expansion().classes("w-full ic-run border rounded") as expansion:
-            with expansion.add_slot("header"), ui.row().classes("ic-run-head"):
-                ui.label(state.label or tr("run")).classes("ic-run-title")
-                status_label = ui.label("").classes("ic-badge ic-status--idle")
-                duration_label = ui.label("").classes("t-meta ic-run-time")
-            with ui.column().classes("ic-log-panel w-full"):
-                with ui.row().classes("ic-log-head w-full items-center justify-between"):
-                    log_caption = ui.label("").classes("t-meta ic-log-caption")
-                    with ui.row().classes("ic-actions items-center"):
-                        cancel_button = layout.button(tr("stop"), kind="danger", size="row")
-                        copy_button = layout.button(
-                            kind="quiet", size="row", icon="content_copy",
-                            on_click=lambda: _copy_report(state, error_tail_lines),
-                        ).props(f'round aria-label="{tr("copy_for_chat")}"').tooltip(tr("copy_for_chat"))
-                log = ui.log(max_lines=log_max_lines).classes("w-full")
-            cancel_button.on_click(lambda: _confirm_cancel(state))
+    with runs_container, ui.expansion().classes("w-full ic-run border rounded") as expansion:
+        with expansion.add_slot("header"), ui.row().classes("ic-run-head"):
+            ui.label(state.label or tr("run")).classes("ic-run-title")
+            status_label = ui.label("").classes("ic-badge ic-status--idle")
+            duration_label = ui.label("").classes("t-meta ic-run-time")
+        with ui.column().classes("ic-log-panel w-full"):
+            with ui.row().classes("ic-log-head w-full items-center justify-between"):
+                log_caption = ui.label("").classes("t-meta ic-log-caption")
+                with ui.row().classes("ic-actions items-center"):
+                    cancel_button = layout.button(tr("stop"), kind="danger", size="row")
+                    copy_button = layout.button(
+                        kind="quiet", size="row", icon="content_copy",
+                        on_click=lambda: _copy_report(state, error_tail_lines),
+                    ).props(f'round aria-label="{tr("copy_for_chat")}"').tooltip(tr("copy_for_chat"))
+            log = ui.log(max_lines=log_max_lines).classes("w-full")
+        cancel_button.on_click(lambda: _confirm_cancel(state))
     return RunView(
         expansion=expansion, status_label=status_label, duration_label=duration_label,
         log=log, log_caption=log_caption, cancel_button=cancel_button, copy_button=copy_button,
