@@ -200,6 +200,18 @@ def test_cancel_after_the_process_exited_on_its_own_keeps_the_run_done(monkeypat
 # --- 5-6: финальные статусы и лог -------------------------------------------
 
 
+def test_empty_argv_fails_with_a_spawn_failed_line_instead_of_cancelling() -> None:
+    async def scenario() -> None:
+        spawner = _Spawner()
+        state = run_pool.submit([], spawn=spawner)
+        assert state is not None
+        await spawner.drain()
+        assert state.status == "failed"
+        assert len(state.lines) == 1
+
+    asyncio.run(scenario())
+
+
 def test_successful_run_collects_the_log_and_calls_on_line() -> None:
     async def scenario() -> None:
         spawner = _Spawner()
