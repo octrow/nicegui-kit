@@ -96,7 +96,6 @@ In-memory only: `RUNS: dict[run_id, RunState]`, `RunState.lines: list[str]` unca
 
 - MEDIUM: `RunState.lines` never capped; a chatty child grows RAM unboundedly (149 MB per 1M lines, ~3.4 GB at 23 retained runs). `src/nicegui_kit/run_pool.py:155`
 - FIXED 2026-11-05: SIGKILL escalation to the process group after 5 s (#3, #9); no run timeout yet. `src/nicegui_kit/run_pool.py` (step 6/7/9)
-- MEDIUM: a `spawn` failure leaves a permanent `queued` run counting toward the 20 cap (#1). `src/nicegui_kit/run_pool.py:126`
 - LOW: tick pushes lines one at a time per row per tab, O(rows x tabs) per second; fine at 1 user, first to saturate at x10. `src/nicegui_kit/run_monitor.py:176`
 - LOW: a raising `run_filter` aborts the tick for later rows and deletion (#5). `src/nicegui_kit/run_monitor.py`
 - LOW: no persistence: runs and logs vanish on host restart. `src/nicegui_kit/run_pool.py` (`RUNS`)

@@ -56,7 +56,7 @@ All public functions are called from the app's own page or startup code. There i
 | Entry | Defaults | Notes |
 |---|---|---|
 | `run_pool.submit(argv, ...)` | `label=""`, `cwd=None`, `env=None` -> `{}` -> child inherits the parent env; non-empty `env` is merged over `os.environ`, `meta=None` -> `{}`, `on_line=None`, `spawn=background_tasks.create` | side effect: stores the run in the global `RUNS` and may drop old finished runs; returns `None` when 20 runs are queued or running; call it where an event loop is running |
-| `run_pool.request_cancel(run_id)` | none | `False` when the run is unknown or already finished |
+| `run_pool.request_cancel(run_id)` | none | `False` when the run is unknown or already finished, or its process group is empty |
 | `run_pool.terminate_all_live_processes(grace_seconds=0.0)` | no wait | for `app.on_shutdown`; SIGTERM to each child's process group; with `grace_seconds > 0` survivors get SIGKILL to the group after the budget; skips runs still spawning (`process` is `None`); does not change any `RunState.status` |
 | `run_monitor.attach_run_monitor(...)` | poll 1.0 s, log DOM cap 2000 lines, copy tail 15 lines, no filter | call inside a page; one timer per page client |
 | `theme.apply_theme()` | none | once before `ui.run()`; sets Quasar colors, injects CSS in `<head>` |
@@ -144,7 +144,8 @@ Branches:
 - `queued` -> flag, status `cancelled`, `finished_at` now, immediately;
 - `running`, process not yet created -> flag only; step 3 sends SIGTERM to the group and arms the SIGKILL watchdog;
 - `running`, process alive -> flag, SIGTERM to the process group, watchdog task sends SIGKILL to the group after `KILL_GRACE_SECONDS`; status arrives from step 5;
-- `running`, process already exited -> `False`; this lasts as long as a grandchild holds the pipe, so Stop does nothing then (#9).
+- `running`, process already exited, its group still has members (a grandchild holding the pipe) -> flag, SIGTERM to the group plus the SIGKILL watchdog, `True` (#9);
+- `running`, process already exited, group empty (only the pipe is left to drain) -> `False`, the run ends `done`/`failed` on its own.
 Signals go to the whole process group, so a grandchild holding stdout dies with the child and the run ends (#9). A process that ignores SIGTERM is SIGKILLed after 5 s and frees its slot (#3).
 Module: `run_pool`
 
@@ -217,3 +218,4 @@ Module: `hotkeys`, `texts`
 
 - Shutdown with `grace_seconds == 0` only sends SIGTERM; the task cancel that follows escalates to SIGKILL after 5 s if the process is still there.
 - On Windows there are no process groups: only the direct child is signalled.
+- `terminate_all_live_processes` skips a run whose direct child already exited (a grandchild may still hold the pipe); the task cancel that follows kills that group.

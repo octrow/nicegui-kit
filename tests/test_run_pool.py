@@ -579,6 +579,30 @@ def test_exception_while_waiting_does_not_orphan_the_child_group(monkeypatch) ->
     asyncio.run(scenario())
 
 
+@POSIX_ONLY
+def test_stop_works_after_the_child_exited_while_a_grandchild_holds_stdout() -> None:
+    # sh exits at once; the background sleep keeps stdout open, so the run stays `running`
+    orphaning = ["sh", "-c", "sleep 60 & echo $$; echo ready"]
+
+    async def scenario() -> None:
+        spawner = _Spawner()
+        seen: list[str] = []
+        state = run_pool.submit(orphaning, spawn=spawner, on_line=seen.append)
+        assert state is not None
+        assert await _wait_until(lambda: "ready" in seen)
+        pgid = int(seen[0])
+        assert await _wait_until(lambda: state.process.returncode is not None)
+        assert state.status == "running"
+
+        assert run_pool.request_cancel(state.run_id) is True
+        await spawner.drain(timeout=10)
+
+        assert state.status == "cancelled"
+        await _assert_group_gone(pgid)
+
+    asyncio.run(scenario())
+
+
 def test_env_is_merged_over_the_parent_environment(monkeypatch) -> None:
     monkeypatch.setenv("KIT_PARENT_VAR", "parent")
     code = "import os; print(os.environ.get('KIT_PARENT_VAR'), os.environ.get('KIT_OWN_VAR'))"

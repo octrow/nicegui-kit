@@ -7,15 +7,15 @@
 ## Баги
 
 MEDIUM (все в `run_pool.py`):
-- [x] ✅ 2026-11-05 #1: `submit` убирает запуск из `RUNS` и пробрасывает исключение, если `spawn` упал; не закоммичено. (было: при ошибке `spawn` запуск остаётся `queued` в `RUNS` и занимает лимит 20; убрать из `RUNS` или пометить `failed` ([план](docs/plans/2026-11-05-logic-map-fixes.md), `run_pool.py:135`))
-- [x] #2: ✅ 2026-11-05 — `env={}` и `env=None` одинаково наследуют окружение, непустой `env` заменяет его без merge; решить и описать (вопрос владельцу)
-- [x] #3: ✅ 2026-11-05 — только `terminate()`, ребёнок, игнорирующий SIGTERM, держит слот; 3 таких замораживают пул; нужен `kill()` после таймаута (вопрос владельцу; [system-design](docs/system-design.md#risks))
-- [x] #9: ✅ 2026-11-05 — внук держит stdout, запуск вечно `running`, Stop не работает; `start_new_session` и `killpg` вместе с #3 ([system-design](docs/system-design.md#risks))
+- [x] ✅ 2026-11-05 #1: `submit` убирает запуск из `RUNS` и пробрасывает исключение, если `spawn` упал; dc2ee4f. (было: при ошибке `spawn` запуск остаётся `queued` в `RUNS` и занимает лимит 20; убрать из `RUNS` или пометить `failed` ([план](docs/plans/2026-11-05-logic-map-fixes.md), `run_pool.py:135`))
+- [x] #2: ✅ 2026-11-05 (bc4a587) — непустой `env` теперь мержится поверх `os.environ`, `None`/`{}` наследуют окружение (было: непустой `env` заменял окружение целиком)
+- [x] #3: ✅ 2026-11-05 (bc4a587) — отмена шлёт SIGTERM группе и через 5 с SIGKILL; shutdown с `grace_seconds > 0` добивает SIGKILL после бюджета (было: только `terminate()`, игнорирующий SIGTERM ребёнок держал слот)
+- [x] #9: ✅ 2026-11-05 (bc4a587 + `request_cancel` для вышедшего лидера) — ребёнок стартует со `start_new_session`, сигналы идут группе через `killpg`; Stop работает и после выхода прямого ребёнка, пока внук держит stdout (было: запуск вечно `running`, Stop не работал)
 - [ ] `RunState.lines` без лимита: 149 МБ на 1M строк, до ~3.4 ГБ на 23 сохранённых запуска ([system-design](docs/system-design.md#risks), `run_pool.py:155`)
 
 LOW (по списку, детали в плане):
-- [ ] #8 (частично ✅ 2026-11-05: неожиданное исключение в `_execute` теперь `failed` со строкой в логе, пустой argv уже давал `failed`; не закоммичено): любое неожиданное исключение в `_execute` превращается в `cancelled`; `submit([])` падает с IndexError; нужен `failed` и отказ на пустой argv
-- [ ] #7 ✅ 2026-11-05 (`storage_key` через `json.dumps` в `table.py`, не закоммичено); #4, #5, #6, #10, #11, #12, #13: мелкие дефекты `run_monitor.py`, `table.py`, `theme.py` ([таблица](docs/plans/2026-11-05-logic-map-fixes.md#findings))
+- [ ] #8 (частично ✅ 2026-11-05: неожиданное исключение в `_execute` теперь `failed` со строкой в логе, пустой argv уже давал `failed`; dc2ee4f): любое неожиданное исключение в `_execute` превращается в `cancelled`; `submit([])` падает с IndexError; нужен `failed` и отказ на пустой argv
+- [ ] #7 ✅ 2026-11-05 (`storage_key` через `json.dumps` в `table.py`, dc2ee4f); #4, #5, #6, #10, #11, #12, #13: мелкие дефекты `run_monitor.py`, `table.py`, `theme.py` ([таблица](docs/plans/2026-11-05-logic-map-fixes.md#findings))
 
 ## Планы и фичи
 

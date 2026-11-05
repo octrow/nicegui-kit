@@ -119,6 +119,23 @@ def _signal_group(process: "asyncio.subprocess.Process", sig: int) -> None:
         pass
 
 
+def _group_alive(process: "asyncio.subprocess.Process") -> bool:
+    """Есть ли ещё живые члены группы ребёнка (лидер мог выйти, а внук — держать stdout).
+
+    На Windows групп нет: False.
+    """
+    pid = getattr(process, "pid", None)
+    if sys.platform == "win32" or pid is None:
+        return False
+    try:
+        os.killpg(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:  # член группы есть, просто не наш uid
+        return True
+    return True
+
+
 async def _kill_group_after_grace(process: "asyncio.subprocess.Process") -> None:
     await asyncio.sleep(KILL_GRACE_SECONDS)
     _signal_group(process, _SIGKILL)
@@ -305,11 +322,12 @@ def request_cancel(run_id: str) -> bool:
     if process is None:
         state.cancelled = True
         return True  # ещё спавнится: _execute увидит cancelled и погасит сам
-    if process.returncode is None:
+    # лидер мог уже выйти, а внук в его группе — держать stdout: ран ещё жив, гасим группу
+    if process.returncode is None or _group_alive(process):
         state.cancelled = True
         _terminate_with_escalation(state)  # статус доставит _run_lifecycle
         return True
-    return False
+    return False  # группа пуста: ран сам завершился, осталось дочитать пайп
 
 
 # --- хелперы для UI ---------------------------------------------------------

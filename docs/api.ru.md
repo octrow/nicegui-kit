@@ -83,14 +83,17 @@ validation=None, suggestions=None, enter=None)`: текстовое поле к�
 
 Пул подпроцессов с безопасной отменой: `MAX_PARALLEL_RUNS` слотов, очередь до `MAX_TOTAL_PENDING`,
 история на `FINISHED_HISTORY_LIMIT`. `submit(argv, *, label="", cwd=None, env=None, meta=None,
-on_line=None, spawn=None) -> RunState | None` (`None` значит, что очередь полна). `argv` — полная
+on_line=None, spawn=None) -> RunState | None` (`None` значит, что очередь полна). `env` мержится поверх `os.environ` (`None` и `{}` просто
+наследуют окружение); отмена и выключение шлют сигнал всей группе процессов ребёнка (POSIX);
+`request_cancel` через 5 с после SIGTERM добивает группу SIGKILL и работает, даже когда прямой ребёнок
+уже вышел, а внук держит вывод открытым. `argv` — полная
 командная строка (программа и аргументы): что и где запускать, решает вызывающий код. `on_line`
 вызывается на каждую строку объединённого stdout+stderr (не из slot-стека NiceGUI; почему там нельзя
 трогать `ui.*`, объясняет docstring модуля). `request_cancel(run_id)`,
 `async terminate_all_live_processes(grace_seconds=0.0)` (регистрируйте его в `app.on_shutdown` через
 обёртку без аргументов, `async def _stop(): await run_pool.terminate_all_live_processes()`, потому что
 NiceGUI передаёт `App` в обработчик с одним параметром и он попал бы в `grace_seconds`;
-`grace_seconds` — сколько ждать дочерние процессы после SIGTERM), `live_runs()` (в очереди и
+`grace_seconds` — сколько ждать дочерние процессы после SIGTERM, потом оставшимся группам SIGKILL), `live_runs()` (в очереди и
 запущенные), `all_runs()`.
 
 У каждого `RunState` есть `label: str` (его показывает интерфейс) и `meta: dict` (всё, что приложение

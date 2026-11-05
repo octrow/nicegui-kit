@@ -96,7 +96,7 @@ need this.
 Cancel-safe subprocess pool: `MAX_PARALLEL_RUNS` slots, `MAX_TOTAL_PENDING`
 queue cap, `FINISHED_HISTORY_LIMIT` history. `submit(argv, *, label="",
 cwd=None, env=None, meta=None, on_line=None, spawn=None) -> RunState | None`
-(`None` means the queue is full). `env` is merged over `os.environ` (`None`/`{}` just inherit); cancel and shutdown signal the child's whole process group and SIGKILL it after 5 s. `argv` is the full command line (executable
+(`None` means the queue is full). `env` is merged over `os.environ` (`None`/`{}` just inherit); cancel and shutdown signal the child's whole process group (POSIX); `request_cancel` SIGKILLs the group 5 s after SIGTERM and still works when the direct child has exited but a grandchild keeps the output open. `argv` is the full command line (executable
 + args) — the caller decides what to run and where; `on_line` fires per merged
 stdout+stderr line (not called from a NiceGUI slot-stack — see the module
 docstring for why `ui.*` must never go there). `request_cancel(run_id)`,
