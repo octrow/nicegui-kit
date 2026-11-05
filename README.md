@@ -14,11 +14,13 @@
 
 <p align="center"><b>English</b> | <a href="README.ru.md">Русский</a></p>
 
-nicegui-kit is a theme and a small toolkit for [NiceGUI](https://nicegui.io) apps that run jobs:
-internal tools, scrapers, admin panels, review queues. Call `theme.apply_theme()` once and every page
-gets a light and dark theme that passes WCAG AA, a self-hosted Inter font that works offline, and
-helpers that keep spacing consistent. `run_pool` and `run_monitor` add the part most of these tools need:
-start a subprocess from a button and watch its log live, with cancel that really stops it.
+A WCAG AA theme, layout helpers and a live subprocess runner for [NiceGUI](https://nicegui.io) apps that run jobs.
+
+Fits internal tools, scrapers, admin panels and review queues.
+
+- `theme.apply_theme()`: light and dark themes, a self-hosted Inter font that works offline.
+- `layout`: helpers that keep spacing consistent.
+- `run_pool` and `run_monitor`: start a subprocess from a button, watch its log live, cancel it for real.
 
 <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/demo.gif" width="100%" alt="nicegui-kit demo, about 15 seconds: start a run from a dialog, its log opens and streams live until done, search narrows the list, then the page switches to the dark theme">
 
@@ -73,7 +75,7 @@ showcase does.
 | module | what you get |
 |---|---|
 | `theme` | `apply_theme()`: light and dark tokens in one dict, every text/background pair tested at WCAG AA in both themes, self-hosted Inter Variable. `theme_toggle()`: a header button that cycles system → light → dark and remembers the choice |
-| `layout` | `page_container`, `heading`, `section_card`, `grid`, `field`, `search_field`, `filter_bar`, `actions_row`, `button`, `markdown_reader`, `copy_for_chat_button`, and the three states every data view needs: `empty`, `waiting`, `failed` |
+| `layout` | `page_container`, `heading`, `section_card`, `grid`, `field`, `filter_bar`, `button` and more (full list in the API reference). Three states every data view needs: `empty`, `waiting`, `failed` |
 | `table` | `empty_aware_table()`: a `ui.table` and its "nothing found" label, kept in sync by one call |
 | `hotkeys` | `on_keydown()`: page hotkeys that ignore keyup, held modifiers and typing in inputs |
 | `texts` | every kit string in one dict, Russian by default, `texts.EN` for English |
@@ -96,22 +98,28 @@ behind the theme (tokens, type scale, do's and don'ts) are in [DESIGN.md](https:
   <img src="https://raw.githubusercontent.com/octrow/nicegui-kit/main/docs/images/flow-light.svg" width="100%" alt="Your page calls run_pool.submit(argv); the pool runs up to 3 subprocesses and queues up to 20; each output line goes to on_line; the run monitor polls once a second and edits its widgets in place.">
 </picture>
 
-Your page calls `run_pool.submit(argv)`. The pool runs up to 3 processes at once and queues up to 20
-more; `argv` is a list and never goes through a shell. stdout and stderr are merged, and lines up to
-1 MiB are kept (asyncio's default 64 KiB limit would break the pipe). The run monitor polls once a
-second and changes the existing widgets instead of rebuilding them, because NiceGUI has no virtual DOM:
-a rebuild would collapse open panels and reset the log's scroll position.
+Your page calls `run_pool.submit(argv)`. The pool runs up to 3 processes at once and queues up to 20 more.
+
+`argv` is a list and never goes through a shell. stdout and stderr are merged. Lines up to 1 MiB are
+kept, because asyncio's default 64 KiB limit would break the pipe.
+
+The run monitor polls once a second and edits the existing widgets. NiceGUI has no virtual DOM, so a
+rebuild would collapse open panels and reset the log's scroll position.
 
 ## Why not plain NiceGUI?
 
-NiceGUI gives you Quasar components and Tailwind classes, which is enough for one page. Across several
-tools the same things get written again: colors that fail contrast in dark mode, a different gap on every
-card, a subprocess launched from a button that blocks the event loop or leaves a zombie when the tab
-closes, a log view that jumps to the top on every refresh. The kit fixes those once and tests them.
+NiceGUI gives you Quasar components and Tailwind classes. That is enough for one page.
 
-You still write `ui.*` code; the kit sits on top of NiceGUI, and each part of it works on its own. If you
-are building a data app around dataframes and charts rather than jobs and forms, Streamlit or Gradio may
-fit better.
+Across several tools the same problems come back:
+
+- colors that fail contrast in dark mode;
+- a different gap on every card;
+- a subprocess launched from a button that blocks the event loop or leaves a zombie when the tab closes;
+- a log view that jumps to the top on every refresh.
+
+The kit fixes these once and tests them. You still write `ui.*` code, and each part works on its own.
+
+For a data app built around dataframes and charts, Streamlit or Gradio may fit better.
 
 ## Out of scope
 
