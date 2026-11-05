@@ -39,3 +39,4 @@ LOW (по списку, детали в плане):
 - [docs/system-design.md](docs/system-design.md): расчёт нагрузки, отказы, риски (2026-11-05)
 - Сводка по всем репо: `~/dev/docs/system-design-report-2026-11-05.md`
 - [DESIGN.md](DESIGN.md), [docs/api.md](docs/api.md): правила дизайна и публичный API
+- [docs/skills-roadmap-2026-11-05.md](docs/skills-roadmap-2026-11-05.md): навыки с рынка вакансий, 1 пункт: Dockerfile + compose для examples/ и образ в release.yml
