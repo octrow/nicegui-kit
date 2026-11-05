@@ -135,7 +135,13 @@ def submit(
     RUNS[state.run_id] = state
     _prune_finished_history()
     spawner = spawn if spawn is not None else background_tasks.create
-    spawner(_run_lifecycle(state, cwd, on_line), name=f"nicegui-kit-run-{state.run_id}")
+    coro = _run_lifecycle(state, cwd, on_line)
+    try:
+        spawner(coro, name=f"nicegui-kit-run-{state.run_id}")
+    except BaseException:  # no loop etc.: do not leave a phantom queued run
+        coro.close()
+        RUNS.pop(state.run_id, None)
+        raise
     return state
 
 
@@ -169,6 +175,10 @@ async def _run_lifecycle(
             if state.status == CANCELLED or state.cancelled:
                 return  # отменён, пока стоял в очереди — не стартуем вовсе
             await _execute(state, cwd, on_line)
+    except Exception as exc:  # a crash is FAILED, not "cancelled by user"
+        logger.exception("run %s crashed", state.run_id)
+        state.lines.append(tr("spawn_failed", error=repr(exc)))
+        state.status = FAILED
     finally:
         _finalize(state)
 

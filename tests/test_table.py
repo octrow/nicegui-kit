@@ -74,3 +74,10 @@ async def test_picker_hides_a_column_and_turns_fit_off(user: User) -> None:
     user.find("По ширине окна").click()
     assert pair_table.props["visible-columns"] == ["repo", "stars", "lang"]
     assert "ic-table--picked" not in pair_table.classes
+
+
+def test_storage_key_with_a_quote_stays_a_valid_js_literal() -> None:
+    key = "a'b\"c"
+    for call in (table._js_get(key), table._js_remove(key), table._js_set(key, {"x"})):
+        assert "'a'b" not in call
+        assert '"a\'b\\"c"' in call

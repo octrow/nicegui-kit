@@ -432,3 +432,33 @@ def test_grace_period_returns_when_the_budget_runs_out_and_leaves_the_child_aliv
         await spawner.drain()
 
     asyncio.run(scenario())
+
+
+# --- findings #1, #8 --------------------------------------------------------
+
+
+def test_spawn_that_raises_leaves_no_phantom_run_in_the_pool() -> None:
+    def broken_spawn(coro, name: str | None = None):
+        coro.close()
+        raise AssertionError("no event loop")
+
+    with pytest.raises(AssertionError):
+        run_pool.submit(PRINT_OK, spawn=broken_spawn)
+    assert run_pool.all_runs() == []
+
+
+def test_unexpected_exception_in_execute_marks_the_run_failed(monkeypatch) -> None:
+    async def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", boom)
+
+    async def scenario() -> None:
+        spawner = _Spawner()
+        state = run_pool.submit(PRINT_OK, spawn=spawner)
+        assert state is not None
+        await spawner.drain()
+        assert state.status == "failed"
+        assert any("boom" in line for line in state.lines)
+
+    asyncio.run(scenario())

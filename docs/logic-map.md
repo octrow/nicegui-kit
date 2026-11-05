@@ -77,7 +77,7 @@ Branches:
 - otherwise -> `RunState` with a copy of `argv`, `meta`, `env`, stored in `RUNS` under an 8-hex id.
 After storing, the pool drops the oldest finished runs beyond `FINISHED_HISTORY_LIMIT` (20); queued and running runs are never dropped.
 Then the lifecycle coroutine is handed to `spawn`.
-Fails: if `spawn` raises (for example no event loop: `background_tasks.create` asserts `core.loop`), the exception reaches the caller but the run stays `queued` in `RUNS` and counts toward the 20 until someone cancels it (#1).
+Fails: if `spawn` raises (for example no event loop: `background_tasks.create` asserts `core.loop`), the run is removed from `RUNS` and the exception reaches the caller (#1 fixed).
 Module: `run_pool`
 
 ### 2. Wait for a slot
@@ -97,11 +97,11 @@ Module: `run_pool`
 Decides: whether the process started.
 In: `argv`, `cwd`, `env`. Out: `state.process`, status `running`, `started_at`.
 Branches:
-- `OSError`, `ValueError`, `TypeError` from `create_subprocess_exec` -> log line `failed to start: ...`, status `failed`, no return code; an empty `argv` raises `IndexError` inside this handler and ends `cancelled` with no log line (#8);
+- `OSError`, `ValueError`, `TypeError` from `create_subprocess_exec` -> log line `failed to start: ...`, status `failed`, no return code; an empty `argv` also ends `failed` with a log line;
 - status is set to `running` before the spawn starts; cancel flag set while spawning -> `terminate()` right after the process exists;
 - `env` empty or `None` -> child inherits the parent env; non-empty `env` replaces it entirely, no merge (#2).
 stderr is merged into stdout; the stream limit is 1 MiB per line.
-Fails: any other exception skips to step 6, which marks the run `cancelled` (not `failed`), and propagates to the background task (#8).
+Fails: any other exception is logged, adds a `failed to start: ...` log line and marks the run `failed` before step 6 (#8 fixed).
 Module: `run_pool`
 
 ### 4. Pump output
@@ -215,7 +215,6 @@ Module: `hotkeys`, `texts`
 
 ## Known gaps
 
-- A `spawn` that raises leaves a permanent `queued` run that eats pool capacity (#1).
 - No SIGKILL escalation: a child ignoring SIGTERM keeps its slot and outlives cancel and shutdown (#3).
 - An empty `env` means "inherit", a non-empty `env` means "replace" (#2).
 - Cancel and shutdown signal only the direct child: grandchildren survive, and one holding stdout keeps the run `running` and un-stoppable (#9).

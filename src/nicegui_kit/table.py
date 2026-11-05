@@ -32,6 +32,18 @@ SUB_SLOT = ('<q-td :props="props">{{ props.value }}'
 PICKED_CLASS = "ic-table--picked"
 
 
+def _js_get(key: str) -> str:
+    return f"localStorage.getItem({json.dumps(key)})"
+
+
+def _js_remove(key: str) -> str:
+    return f"localStorage.removeItem({json.dumps(key)})"
+
+
+def _js_set(key: str, hidden: set[str]) -> str:
+    return f"localStorage.setItem({json.dumps(key)}, {json.dumps(json.dumps(sorted(hidden)))})"
+
+
 def _decorate(columns: list[dict]) -> list[dict]:
     """Priority -> a class on th and td; the first column is the row's anchor, never hidden."""
     out = []
@@ -92,7 +104,7 @@ class EmptyAwareTable:
 
         async def _restore() -> None:
             try:
-                saved = await ui.run_javascript(f"localStorage.getItem('{storage_key}')")
+                saved = await ui.run_javascript(_js_get(storage_key))
             except TimeoutError:
                 return  # ponytail: a slow client keeps the width-based columns this visit
             try:
@@ -109,8 +121,7 @@ class EmptyAwareTable:
     def _choose(self, hidden: set[str] | None) -> None:
         self.hidden = hidden
         key = self._storage_key
-        ui.run_javascript(f"localStorage.removeItem('{key}')" if hidden is None
-                          else f"localStorage.setItem('{key}', {json.dumps(json.dumps(sorted(hidden)))})")
+        ui.run_javascript(_js_remove(key) if hidden is None else _js_set(key, hidden))
         self._apply()
 
     def _fill_picker(self) -> None:
