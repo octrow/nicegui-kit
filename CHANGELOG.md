@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.4] - 2026-11-05
+
+### Fixed
+
+- Run pool: a failed process start is reported as an error, not as stopped.
+- Run pool: `request_cancel` no longer marks a run cancelled when its process had already finished.
+- Run pool: an empty `argv` ends the run as FAILED instead of CANCELLED.
+- Hotkeys skip Alt/Meta chords.
+- Dependency: certifi bumped to 2026.10.19 (PYSEC-2026-4320).
+
+### Changed
+
+- README is shorter and in plain language; details moved to `docs/`.
+- Added a logic map, a findings plan and a sync test.
+- `run_monitor`: nested `with` merged into one statement (ruff SIM117).
+- CI actions bumped: setup-uv 10.3.2, gh-action-pypi-publish 1.14.3, codeql upload-sarif 4.39.1.
+
 ## [0.1.3] - 2026-10-15
 
 ### Changed
@@ -41,6 +58,7 @@ First public release.
 - `examples/showcase.py`: a sample job runner screen and a component gallery.
 - Agent skill `nicegui-kit-gui` for Claude Code and other coding agents.
 
+[0.1.4]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.4
 [0.1.3]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.3
 [0.1.2]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.2
 [0.1.1]: https://github.com/octrow/nicegui-kit/releases/tag/v0.1.1
