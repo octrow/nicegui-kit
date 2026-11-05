@@ -96,7 +96,7 @@ need this.
 Cancel-safe subprocess pool: `MAX_PARALLEL_RUNS` slots, `MAX_TOTAL_PENDING`
 queue cap, `FINISHED_HISTORY_LIMIT` history. `submit(argv, *, label="",
 cwd=None, env=None, meta=None, on_line=None, spawn=None) -> RunState | None`
-(`None` means the queue is full). `argv` is the full command line (executable
+(`None` means the queue is full). `env` is merged over `os.environ` (`None`/`{}` just inherit); cancel and shutdown signal the child's whole process group and SIGKILL it after 5 s. `argv` is the full command line (executable
 + args) — the caller decides what to run and where; `on_line` fires per merged
 stdout+stderr line (not called from a NiceGUI slot-stack — see the module
 docstring for why `ui.*` must never go there). `request_cancel(run_id)`,
@@ -104,7 +104,7 @@ docstring for why `ui.*` must never go there). `request_cancel(run_id)`,
 with `app.on_shutdown` through a zero-argument wrapper —
 `async def _stop(): await run_pool.terminate_all_live_processes()` — because NiceGUI
 passes the `App` into a one-parameter handler, where it would land in `grace_seconds`;
-`grace_seconds` waits for children after SIGTERM), `live_runs()`
+`grace_seconds` waits for children after SIGTERM, then SIGKILLs the stragglers), `live_runs()`
 (queued + running), `all_runs()`.
 
 Each `RunState` has a `label: str` (shown in the UI) and a `meta: dict`

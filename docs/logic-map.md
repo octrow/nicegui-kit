@@ -55,9 +55,9 @@ All public functions are called from the app's own page or startup code. There i
 
 | Entry | Defaults | Notes |
 |---|---|---|
-| `run_pool.submit(argv, ...)` | `label=""`, `cwd=None`, `env=None` -> `{}` -> child inherits the parent env, `meta=None` -> `{}`, `on_line=None`, `spawn=background_tasks.create` | side effect: stores the run in the global `RUNS` and may drop old finished runs; returns `None` when 20 runs are queued or running; call it where an event loop is running |
+| `run_pool.submit(argv, ...)` | `label=""`, `cwd=None`, `env=None` -> `{}` -> child inherits the parent env; non-empty `env` is merged over `os.environ`, `meta=None` -> `{}`, `on_line=None`, `spawn=background_tasks.create` | side effect: stores the run in the global `RUNS` and may drop old finished runs; returns `None` when 20 runs are queued or running; call it where an event loop is running |
 | `run_pool.request_cancel(run_id)` | none | `False` when the run is unknown or already finished |
-| `run_pool.terminate_all_live_processes(grace_seconds=0.0)` | no wait | for `app.on_shutdown`; SIGTERM to direct children only; skips runs still spawning (`process` is `None`); does not change any `RunState.status` |
+| `run_pool.terminate_all_live_processes(grace_seconds=0.0)` | no wait | for `app.on_shutdown`; SIGTERM to each child's process group; with `grace_seconds > 0` survivors get SIGKILL to the group after the budget; skips runs still spawning (`process` is `None`); does not change any `RunState.status` |
 | `run_monitor.attach_run_monitor(...)` | poll 1.0 s, log DOM cap 2000 lines, copy tail 15 lines, no filter | call inside a page; one timer per page client |
 | `theme.apply_theme()` | none | once before `ui.run()`; sets Quasar colors, injects CSS in `<head>` |
 | `theme.theme_toggle()` | mode `system` | once per page, inside the header |
@@ -99,7 +99,8 @@ In: `argv`, `cwd`, `env`. Out: `state.process`, status `running`, `started_at`.
 Branches:
 - `OSError`, `ValueError`, `TypeError` from `create_subprocess_exec` -> log line `failed to start: ...`, status `failed`, no return code; an empty `argv` also ends `failed` with a log line;
 - status is set to `running` before the spawn starts; cancel flag set while spawning -> `terminate()` right after the process exists;
-- `env` empty or `None` -> child inherits the parent env; non-empty `env` replaces it entirely, no merge (#2).
+- `env` empty or `None` -> child inherits the parent env; non-empty `env` is merged over `os.environ`, its keys win (#2).
+- the child starts with `start_new_session=True`, so it leads its own process group (POSIX; on Windows only the direct child is signalled).
 stderr is merged into stdout; the stream limit is 1 MiB per line.
 Fails: any other exception is logged, adds a `failed to start: ...` log line and marks the run `failed` before step 6 (#8 fixed).
 Module: `run_pool`
@@ -129,7 +130,7 @@ Module: `run_pool`
 
 Decides: cleanup on every exit path, including task cancellation at NiceGUI shutdown.
 Branches:
-- process still running (task cancelled) -> `terminate()` once to the direct child; no `kill` follows (#3, #9);
+- process still running (task cancelled, step 3 `_stop_group`) -> SIGTERM to the process group, wait `KILL_GRACE_SECONDS` (5 s), then SIGKILL to the group; a second cancel or any `BaseException` -> SIGKILL to the group at once, then re-raise (#3, #9); `ProcessLookupError` is ignored;
 - status still `queued` or `running` -> `cancelled`;
 - `finished_at` unset -> now (UTC).
 Module: `run_pool`
@@ -141,11 +142,10 @@ In: `run_id`. Out: `True` if something was stopped.
 Branches:
 - unknown or finished run -> `False`;
 - `queued` -> flag, status `cancelled`, `finished_at` now, immediately;
-- `running`, process not yet created -> flag only; step 3 terminates it;
-- `running`, process alive -> flag, `terminate()` (SIGTERM); status arrives from step 5;
+- `running`, process not yet created -> flag only; step 3 sends SIGTERM to the group and arms the SIGKILL watchdog;
+- `running`, process alive -> flag, SIGTERM to the process group, watchdog task sends SIGKILL to the group after `KILL_GRACE_SECONDS`; status arrives from step 5;
 - `running`, process already exited -> `False`; this lasts as long as a grandchild holds the pipe, so Stop does nothing then (#9).
-SIGTERM goes to the direct child only, not its process group: a grandchild survives and keeps the run `running` until it exits (#9).
-A process that ignores SIGTERM keeps its slot (#3).
+Signals go to the whole process group, so a grandchild holding stdout dies with the child and the run ends (#9). A process that ignores SIGTERM is SIGKILLed after 5 s and frees its slot (#3).
 Module: `run_pool`
 
 ### 8. Monitor tick
@@ -169,8 +169,8 @@ Module: `run_monitor`, `layout`, `texts`
 
 Decides: which children get SIGTERM at app stop.
 Branches:
-- every run whose process has no return code -> `terminate()` (direct child only, #9);
-- `grace_seconds > 0` -> wait for all of them together up to that budget; survivors are left alive;
+- every run whose process has no return code -> SIGTERM to its process group (#9);
+- `grace_seconds > 0` -> wait for all of them together up to that budget; survivors get SIGKILL to the group (#3);
 - queued runs are not touched here; statuses are not changed (step 6 does that when the tasks are cancelled).
 Module: `run_pool`
 
@@ -215,6 +215,5 @@ Module: `hotkeys`, `texts`
 
 ## Known gaps
 
-- No SIGKILL escalation: a child ignoring SIGTERM keeps its slot and outlives cancel and shutdown (#3).
-- An empty `env` means "inherit", a non-empty `env` means "replace" (#2).
-- Cancel and shutdown signal only the direct child: grandchildren survive, and one holding stdout keeps the run `running` and un-stoppable (#9).
+- Shutdown with `grace_seconds == 0` only sends SIGTERM; the task cancel that follows escalates to SIGKILL after 5 s if the process is still there.
+- On Windows there are no process groups: only the direct child is signalled.

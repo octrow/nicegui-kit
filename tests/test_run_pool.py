@@ -8,7 +8,10 @@ Run: uv run --package nicegui-kit pytest nicegui-kit -q
 """
 
 import asyncio
+import os
+import signal
 import sys
+import time
 from uuid import uuid4
 
 import pytest
@@ -417,7 +420,7 @@ def test_grace_period_waits_for_the_child_to_exit_on_its_own() -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="terminate() is TerminateProcess on Windows: SIGTERM can't be caught")
-def test_grace_period_returns_when_the_budget_runs_out_and_leaves_the_child_alive() -> None:
+def test_grace_period_runs_out_then_the_child_group_is_sigkilled() -> None:
     async def scenario() -> None:
         spawner = _Spawner()
         seen: list[str] = []
@@ -427,8 +430,9 @@ def test_grace_period_returns_when_the_budget_runs_out_and_leaves_the_child_aliv
 
         await asyncio.wait_for(run_pool.terminate_all_live_processes(grace_seconds=0.3), 5)
 
-        assert state.process is not None and state.process.returncode is None
-        state.process.kill()  # тест не оставляет за собой живых процессов
+        # после бюджета упрямый ребёнок добивается SIGKILL всей группы
+        assert state.process is not None
+        assert await asyncio.wait_for(state.process.wait(), 5) == -signal.SIGKILL
         await spawner.drain()
 
     asyncio.run(scenario())
@@ -462,3 +466,129 @@ def test_unexpected_exception_in_execute_marks_the_run_failed(monkeypatch) -> No
         assert any("boom" in line for line in state.lines)
 
     asyncio.run(scenario())
+
+
+# --- #2, #3, #9: process group kill, env merge ------------------------------
+
+POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="process groups are POSIX")
+# sh ignores SIGTERM and prints its pid; the grandchild sleep inherits stdout and the ignore.
+STUBBORN_SH = ["sh", "-c", "trap '' TERM; echo $$; echo ready; sleep 60"]
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+async def _assert_group_gone(pgid: int) -> None:
+    """Reaped leader and grandchild are both gone: the whole group has no members."""
+    for _ in range(100):
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("process group still alive")
+
+
+@POSIX_ONLY
+def test_cancel_kills_a_child_that_ignores_sigterm_and_its_grandchild() -> None:
+    async def scenario() -> None:
+        spawner = _Spawner()
+        seen: list[str] = []
+        state = run_pool.submit(STUBBORN_SH, spawn=spawner, on_line=seen.append)
+        assert state is not None
+        assert await _wait_until(lambda: "ready" in seen)
+        pgid = int(seen[0])
+
+        started = time.monotonic()
+        assert run_pool.request_cancel(state.run_id)
+        await spawner.drain(timeout=10)
+
+        assert time.monotonic() - started < 8
+        assert state.status == "cancelled"
+        await _assert_group_gone(pgid)
+
+    asyncio.run(scenario())
+
+
+@POSIX_ONLY
+def test_task_cancel_kills_a_child_that_ignores_sigterm() -> None:
+    async def scenario() -> None:
+        tasks: list[asyncio.Task] = []
+        seen: list[str] = []
+        state = run_pool.submit(
+            STUBBORN_SH, on_line=seen.append,
+            spawn=lambda coro, name=None: tasks.append(asyncio.create_task(coro, name=name)),
+        )
+        assert state is not None
+        assert await _wait_until(lambda: "ready" in seen)
+        pgid = int(seen[0])
+        tasks[0].cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(tasks[0], 10)
+        await _assert_group_gone(pgid)
+
+    asyncio.run(scenario())
+
+
+@POSIX_ONLY
+def test_shutdown_with_grace_kills_group_of_stubborn_child() -> None:
+    async def scenario() -> None:
+        spawner = _Spawner()
+        seen: list[str] = []
+        state = run_pool.submit(STUBBORN_SH, spawn=spawner, on_line=seen.append)
+        assert state is not None
+        assert await _wait_until(lambda: "ready" in seen)
+        pgid = int(seen[0])
+        await asyncio.wait_for(run_pool.terminate_all_live_processes(grace_seconds=0.3), 5)
+        await _assert_group_gone(pgid)
+        await spawner.drain()
+
+    asyncio.run(scenario())
+
+
+@POSIX_ONLY
+def test_exception_while_waiting_does_not_orphan_the_child_group(monkeypatch) -> None:
+    seen: list[str] = []
+
+    async def pump(state, on_line):
+        while not seen:
+            await asyncio.sleep(0.02)
+        raise ValueError("boom")  # stands in for any BaseException from the waiting code
+
+    async def scenario() -> None:
+        state = run_pool.submit(
+            STUBBORN_SH, on_line=seen.append,
+            spawn=lambda coro, name=None: asyncio.create_task(coro, name=name),
+        )
+        assert state is not None
+        assert await _wait_until(lambda: state.process is not None)
+        pgid = state.process.pid
+        # the real pump is replaced, so nothing reads stdout: wait for the group directly
+        pump_started = state.process
+        seen.append("go")
+        await _assert_group_gone(pgid)
+        assert pump_started.returncode is not None
+        assert await _wait_until(lambda: state.status == "failed")
+
+    monkeypatch.setattr(run_pool, "_pump_output", pump)
+    asyncio.run(scenario())
+
+
+def test_env_is_merged_over_the_parent_environment(monkeypatch) -> None:
+    monkeypatch.setenv("KIT_PARENT_VAR", "parent")
+    code = "import os; print(os.environ.get('KIT_PARENT_VAR'), os.environ.get('KIT_OWN_VAR'))"
+
+    async def run(env):
+        spawner = _Spawner()
+        state = run_pool.submit([sys.executable, "-c", code], spawn=spawner, env=env)
+        await spawner.drain()
+        return state.lines
+
+    assert asyncio.run(run({"KIT_OWN_VAR": "own"})) == ["parent own"]
+    assert asyncio.run(run({})) == ["parent None"]
+    assert asyncio.run(run(None)) == ["parent None"]

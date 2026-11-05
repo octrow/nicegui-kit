@@ -8,9 +8,9 @@
 
 MEDIUM (все в `run_pool.py`):
 - [x] ✅ 2026-11-05 #1: `submit` убирает запуск из `RUNS` и пробрасывает исключение, если `spawn` упал; не закоммичено. (было: при ошибке `spawn` запуск остаётся `queued` в `RUNS` и занимает лимит 20; убрать из `RUNS` или пометить `failed` ([план](docs/plans/2026-11-05-logic-map-fixes.md), `run_pool.py:135`))
-- [ ] #2: `env={}` и `env=None` одинаково наследуют окружение, непустой `env` заменяет его без merge; решить и описать (вопрос владельцу)
-- [ ] #3: только `terminate()`, ребёнок, игнорирующий SIGTERM, держит слот; 3 таких замораживают пул; нужен `kill()` после таймаута (вопрос владельцу; [system-design](docs/system-design.md#risks))
-- [ ] #9: внук держит stdout, запуск вечно `running`, Stop не работает; `start_new_session` и `killpg` вместе с #3 ([system-design](docs/system-design.md#risks))
+- [x] #2: ✅ 2026-11-05 — `env={}` и `env=None` одинаково наследуют окружение, непустой `env` заменяет его без merge; решить и описать (вопрос владельцу)
+- [x] #3: ✅ 2026-11-05 — только `terminate()`, ребёнок, игнорирующий SIGTERM, держит слот; 3 таких замораживают пул; нужен `kill()` после таймаута (вопрос владельцу; [system-design](docs/system-design.md#risks))
+- [x] #9: ✅ 2026-11-05 — внук держит stdout, запуск вечно `running`, Stop не работает; `start_new_session` и `killpg` вместе с #3 ([system-design](docs/system-design.md#risks))
 - [ ] `RunState.lines` без лимита: 149 МБ на 1M строк, до ~3.4 ГБ на 23 сохранённых запуска ([system-design](docs/system-design.md#risks), `run_pool.py:155`)
 
 LOW (по списку, детали в плане):

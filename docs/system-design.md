@@ -25,7 +25,7 @@ Stack, entry points, flow: see logic-map.md. State is one process-global dict `R
 One sentence: let a NiceGUI page start CLI subprocesses with bounded parallelism, stream their output live, and stop them.
 - Functional: submit run, queue/FIFO, stream lines, cancel, show list with status; plus theme/layout/table/hotkey helpers.
 - Out of scope: persistence across restarts, multi-user auth, multi-process hosts, process groups, resource limits.
-- NFRs: scale 1 user; latency: line to screen within ~1 s (poll interval); availability: dies with the host app; durability: none (runs and logs are lost on restart, acceptable); consistency: single event loop, no locks needed; security: argv passed as list (no shell), env inherited by default; observability: `logger.exception` on callback failure only.
+- NFRs: scale 1 user; latency: line to screen within ~1 s (poll interval); availability: dies with the host app; durability: none (runs and logs are lost on restart, acceptable); consistency: single event loop, no locks needed; security: argv passed as list (no shell), env inherited by default and a non-empty `env` merged over it; observability: `logger.exception` on callback failure only.
 
 ## 2. Napkin math
 
@@ -72,9 +72,9 @@ In-memory only: `RUNS: dict[run_id, RunState]`, `RunState.lines: list[str]` unca
 
 - x10 load (10x lines/s or 10x tabs): the first thing to saturate is event-loop time in the 1 Hz tick: each tick touches every row and pushes new lines one at a time (logic-map step 8, #10), so cost is ~ rows x tabs per second (115/s now, 1150/s at x10) plus the single-line `ui.log.push`. A process printing 100k lines/s starves the loop before memory matters. Next rung: batch pushes per tick and cap `lines` (ring buffer or spill to disk); trigger: tick duration > 250 ms or host p95 UI latency > 500 ms.
 - Memory: uncapped `lines` is the second limit: 1M-line runs cost 149 MB each; trigger: RSS of host > 500 MB.
-- Slow/hung child: ignores SIGTERM and keeps its slot forever (#3); 3 such children block the whole pool, queue fills to 20, `submit` returns `None`. No timeout, no SIGKILL escalation.
-- Grandchildren hold the pipe: run stays `running`, Stop does nothing (#9).
-- Host process dies / restart: all runs, logs and queue lost; children may be orphaned unless `terminate_all_live_processes` ran on shutdown (direct children only).
+- Slow/hung child: ignoring SIGTERM no longer holds a slot: the process group gets SIGKILL after 5 s (fixed 2026-11-05, #3). There is still no run timeout.
+- Grandchildren holding the pipe: killed with the group on cancel/shutdown (fixed 2026-11-05, #9); a grandchild that left the group via its own `setsid` is not reached.
+- Host process dies / restart: all runs, logs and queue lost; children may be orphaned unless `terminate_all_live_processes` ran on shutdown (it signals whole process groups).
 - Retries/backoff, rate limits, circuit breakers, backups: n/a. A caller-side retry is the host's job.
 - Single VM loss: same as the host app; no state to restore.
 
@@ -95,8 +95,7 @@ In-memory only: `RUNS: dict[run_id, RunState]`, `RunState.lines: list[str]` unca
 ## Risks
 
 - MEDIUM: `RunState.lines` never capped; a chatty child grows RAM unboundedly (149 MB per 1M lines, ~3.4 GB at 23 retained runs). `src/nicegui_kit/run_pool.py:155`
-- MEDIUM: no SIGKILL escalation or run timeout; a child ignoring SIGTERM holds a slot, 3 of them freeze the pool (logic-map #3). `src/nicegui_kit/run_pool.py` (step 6/7)
-- MEDIUM: grandchild holding stdout keeps run `running` and un-stoppable; cancel/shutdown hit direct child only (#9). `src/nicegui_kit/run_pool.py` (step 7/9)
+- FIXED 2026-11-05: SIGKILL escalation to the process group after 5 s (#3, #9); no run timeout yet. `src/nicegui_kit/run_pool.py` (step 6/7/9)
 - MEDIUM: a `spawn` failure leaves a permanent `queued` run counting toward the 20 cap (#1). `src/nicegui_kit/run_pool.py:126`
 - LOW: tick pushes lines one at a time per row per tab, O(rows x tabs) per second; fine at 1 user, first to saturate at x10. `src/nicegui_kit/run_monitor.py:176`
 - LOW: a raising `run_filter` aborts the tick for later rows and deletion (#5). `src/nicegui_kit/run_monitor.py`

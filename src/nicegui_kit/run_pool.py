@@ -16,6 +16,9 @@
 import asyncio
 import contextlib
 import logging
+import os
+import signal
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +37,7 @@ MAX_PARALLEL_RUNS = 3
 MAX_TOTAL_PENDING = 20  # queued + running: предохранитель от бесконечной очереди
 FINISHED_HISTORY_LIMIT = 20  # завершённых храним не больше, старейшие вытесняются
 STREAM_LINE_LIMIT = 1024 * 1024  # байт на строку вывода (дефолт asyncio 64 KiB рвёт пайп)
+KILL_GRACE_SECONDS = 5.0  # от SIGTERM группе до SIGKILL группе
 
 QUEUED = "queued"
 RUNNING = "running"
@@ -71,6 +75,7 @@ class RunState:
     started_at: datetime | None = None
     finished_at: datetime | None = None
     cancelled: bool = False  # пользователь запросил остановку этого рана
+    killer: "asyncio.Task | None" = None  # сторож: SIGKILL группе после KILL_GRACE_SECONDS
 
 
 # --- модульное состояние (процесс-глобальное, сознательно) ------------------
@@ -97,6 +102,53 @@ def reset_pool_for_tests(*, max_parallel: int | None = None) -> None:
     _MAX_PARALLEL = MAX_PARALLEL_RUNS if max_parallel is None else max_parallel
 
 
+_SIGKILL = getattr(signal, "SIGKILL", signal.SIGTERM)
+
+
+def _signal_group(process: "asyncio.subprocess.Process", sig: int) -> None:
+    """Шлёт сигнал всей группе процесса (ребёнок — лидер своей сессии); ProcessLookupError глотаем.
+
+    На Windows групп нет: terminate()/kill() только прямому ребёнку.
+    """
+    try:
+        if sys.platform == "win32":
+            process.kill() if sig == _SIGKILL else process.terminate()
+        else:
+            os.killpg(process.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+async def _kill_group_after_grace(process: "asyncio.subprocess.Process") -> None:
+    await asyncio.sleep(KILL_GRACE_SECONDS)
+    _signal_group(process, _SIGKILL)
+
+
+def _terminate_with_escalation(state: RunState) -> None:
+    """SIGTERM группе + сторож, который через KILL_GRACE_SECONDS добьёт её SIGKILL'ом."""
+    process = state.process
+    assert process is not None
+    _signal_group(process, signal.SIGTERM)
+    if state.killer is None:
+        try:
+            state.killer = asyncio.get_running_loop().create_task(
+                _kill_group_after_grace(process))
+        except RuntimeError:  # нет лупа: эскалировать некому, остаётся SIGTERM
+            pass
+
+
+async def _stop_group(process: "asyncio.subprocess.Process") -> None:
+    """Отмена таски: SIGTERM группе, ждём KILL_GRACE_SECONDS, затем SIGKILL группе."""
+    try:
+        _signal_group(process, signal.SIGTERM)
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(process.wait(), KILL_GRACE_SECONDS)
+        _signal_group(process, _SIGKILL)  # внуки могли пережить лидера
+    except BaseException:  # повторная отмена / KeyboardInterrupt: не оставляем сирот
+        _signal_group(process, _SIGKILL)
+        raise
+
+
 def _prune_finished_history() -> None:
     """Держит не больше FINISHED_HISTORY_LIMIT завершённых; queued/running неприкасаемы."""
     finished = [
@@ -119,7 +171,11 @@ def submit(
     """Ставит подпроцесс в очередь и спавнит его жизненный цикл.
 
     None — очередь переполнена (MAX_TOTAL_PENDING). `argv` — полная командная
-    строка (executable + args); `cwd`/`env` идут как есть в subprocess_exec;
+    строка (executable + args); `cwd` идёт как есть в subprocess_exec;
+    `env`: None и {} — ребёнок наследует окружение родителя; непустой `env` ДОБАВЛЯЕТСЯ
+    поверх `os.environ` (merge, совпавшие ключи перекрываются), а не заменяет его.
+    Ребёнок стартует лидером новой сессии/группы: отмена шлёт SIGTERM всей группе и через
+    KILL_GRACE_SECONDS добивает её SIGKILL;
     `on_line` вызывается на каждую строку merged stdout+stderr (не из ui-контекста
     — см. предупреждение в докстринге модуля).
     """
@@ -193,8 +249,9 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=str(cwd) if cwd is not None else None,
-            env=state.env or None,
+            env={**os.environ, **state.env} if state.env else None,
             limit=STREAM_LINE_LIMIT,
+            start_new_session=True,
         )
     # нет бинарника / cwd / прав, \0 или не-str в argv: это FAILED, а не "остановлено"
     except (OSError, ValueError, TypeError) as exc:
@@ -203,10 +260,20 @@ async def _execute(state: RunState, cwd: "str | Path | None", on_line: OnLine | 
         state.lines.append(tr("spawn_failed", error=error))
         state.status = FAILED
         return
-    if state.cancelled:  # cancel пришёл, пока процесс ещё спавнился
-        state.process.terminate()
-    await _pump_output(state, on_line)
-    state.return_code = await state.process.wait()
+    try:
+        if state.cancelled:  # cancel пришёл, пока процесс ещё спавнился
+            _terminate_with_escalation(state)
+        await _pump_output(state, on_line)
+        state.return_code = await state.process.wait()
+    except asyncio.CancelledError:
+        await _stop_group(state.process)
+        raise
+    except BaseException:
+        _signal_group(state.process, _SIGKILL)
+        raise
+    finally:
+        if state.killer is not None:
+            state.killer.cancel()
     if state.cancelled:
         state.status = CANCELLED
     else:
@@ -217,8 +284,7 @@ def _finalize(state: RunState) -> None:
     """Отмена таски (teardown NiceGUI, бюджет 2 c) не должна оставлять сироту."""
     process = state.process
     if process is not None and process.returncode is None:
-        with contextlib.suppress(ProcessLookupError):
-            process.terminate()
+        _signal_group(process, _SIGKILL)  # запасной путь: _execute сюда не довёл
     if state.status in PENDING_STATUSES:
         state.status = CANCELLED
     if state.finished_at is None:
@@ -241,8 +307,7 @@ def request_cancel(run_id: str) -> bool:
         return True  # ещё спавнится: _execute увидит cancelled и погасит сам
     if process.returncode is None:
         state.cancelled = True
-        with contextlib.suppress(ProcessLookupError):  # успел выйти сам
-            process.terminate()  # статус доставит _run_lifecycle
+        _terminate_with_escalation(state)  # статус доставит _run_lifecycle
         return True
     return False
 
@@ -290,7 +355,8 @@ async def terminate_all_live_processes(grace_seconds: float = 0.0) -> None:
 
     `grace_seconds > 0` — после SIGTERM ждёт до `grace_seconds` (бюджет общий на все
     процессы, не на каждый), чтобы ребёнок с graceful-обработчиком успел дописать своё и
-    выйти сам. Кто не успел — остаётся жить: что с ним делать дальше, решает вызывающий.
+    выйти сам. Кто не успел — получает SIGKILL всей группе. При `grace_seconds == 0` ждать и убивать
+    нечем: остальное доделает отмена таски (`_stop_group`).
 
     Корутина, потому что ждать `process.wait()` иначе нечем; `app.on_shutdown` принимает и
     корутину, и это единственное место, где ожидание вообще имеет смысл — оно выполняется
@@ -301,12 +367,15 @@ async def terminate_all_live_processes(grace_seconds: float = 0.0) -> None:
         if state.process is not None and state.process.returncode is None
     ]
     for process in live:
-        with contextlib.suppress(ProcessLookupError):
-            process.terminate()
+        _signal_group(process, signal.SIGTERM)
     if grace_seconds > 0 and live:
-        with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(
-                asyncio.gather(*(process.wait() for process in live),
-                               return_exceptions=True),
-                grace_seconds,
-            )
+        try:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(
+                    asyncio.gather(*(process.wait() for process in live),
+                                   return_exceptions=True),
+                    grace_seconds,
+                )
+        finally:  # не успели (или нас отменили) — добиваем группы
+            for process in live:
+                _signal_group(process, _SIGKILL)
